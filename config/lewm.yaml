@@ -19,14 +19,14 @@ projector_loss_weight: 1e-3
 dump_object: True
 
 trainer:
-  max_epochs: 10
+  max_epochs: 100
   devices: auto
   accelerator: gpu
   precision: bf16
   gradient_clip_val: 1.0
 
 loader:
-  batch_size: 192
+  batch_size: 128
   num_workers: ${num_workers}
   drop_last: True
   persistent_workers: True
@@ -36,7 +36,7 @@ loader:
 
 optimizer:
   type: AdamW
-  lr: 7.5e-5
+  lr: 5e-5
   weight_decay: 1e-3
 
 wm:
@@ -87,7 +87,7 @@ model:
 
 loss:
   sigreg:
-    weight: 0.1
+    weight: 0.09
     kwargs:
       knots: 17
       num_proj: 1024
