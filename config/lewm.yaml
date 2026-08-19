@@ -22,11 +22,12 @@ trainer:
   max_epochs: 100
   devices: auto
   accelerator: gpu
+  strategy: ddp
   precision: bf16
   gradient_clip_val: 1.0
 
 loader:
-  batch_size: 128
+  batch_size: 256
   num_workers: ${num_workers}
   drop_last: True
   persistent_workers: True
@@ -36,7 +37,7 @@ loader:
 
 optimizer:
   type: AdamW
-  lr: 5e-5
+  lr: 1.414e-4
   weight_decay: 1e-3
 
 wm:

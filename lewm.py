@@ -29,11 +29,13 @@ def get_img_preprocessor(source: str, target: str, img_size: int = 224):
 class SaveCkptCallback(Callback):
     """Callback to save model checkpoint after each epoch using save_pretrained."""
 
-    def __init__(self, run_name, cfg, epoch_interval: int = 1):
+    def __init__(self, run_name, cfg, epoch_interval: int = 1, hf_cfg=None):
         super().__init__()
         self.run_name = run_name
         self.cfg = cfg
         self.epoch_interval = epoch_interval
+        self.hf_cfg = hf_cfg or {}
+        self._hf_api = None
 
     def on_train_epoch_end(self, trainer, pl_module):
         super().on_train_epoch_end(trainer, pl_module)
@@ -46,13 +48,59 @@ class SaveCkptCallback(Callback):
             if (trainer.current_epoch + 1) == trainer.max_epochs:
                 self._save(pl_module.model, trainer.current_epoch + 1)
 
+    def _get_hf_api(self):
+        if self._hf_api is not None:
+            return self._hf_api
+
+        import logging
+        from huggingface_hub import HfApi
+        from huggingface_hub.utils import disable_progress_bars
+
+        disable_progress_bars()
+        logging.getLogger('huggingface_hub').setLevel(logging.ERROR)
+        token = os.environ.get('HF_TOKEN') or self.hf_cfg.get('token')
+        self._hf_api = HfApi(token=token)
+        return self._hf_api
+
+    def _upload_to_hf(self, weights_file):
+        if not self.hf_cfg.get('enabled'):
+            return
+
+        repo_id = self.hf_cfg['repo_id']
+        ckpt_dir = (
+            swm.data.utils.get_cache_dir(sub_folder='checkpoints')
+            / self.run_name
+        )
+        prefix = self.hf_cfg.get('path_prefix') or self.run_name
+        if prefix and not prefix.endswith('/'):
+            prefix = f'{prefix}/'
+
+        hf_api = self._get_hf_api()
+        hf_api.upload_file(
+            path_or_fileobj=str(ckpt_dir / weights_file),
+            path_in_repo=f'{prefix}{weights_file}',
+            repo_id=repo_id,
+            repo_type='model',
+        )
+        config_path = ckpt_dir / 'config.json'
+        if config_path.exists():
+            hf_api.upload_file(
+                path_or_fileobj=str(config_path),
+                path_in_repo=f'{prefix}config.json',
+                repo_id=repo_id,
+                repo_type='model',
+            )
+        print(f'Uploaded {prefix}{weights_file} to {repo_id}')
+
     def _save(self, model, epoch):
+        filename = f'weights_epoch_{epoch}.pt'
         save_pretrained(
             model,
             run_name=self.run_name,
             config=self.cfg,
-            filename=f'weights_epoch_{epoch}.pt',
+            filename=filename,
         )
+        self._upload_to_hf(filename)
 
 
 def lejepa_forward(self, batch, stage, cfg):
@@ -187,10 +235,15 @@ def run(cfg):
     with open(run_dir / 'config.yaml', 'w') as f:
         OmegaConf.save(cfg, f)
 
+    hf_cfg = cfg.get('hf')
+    if hf_cfg is not None:
+        hf_cfg = OmegaConf.to_container(hf_cfg, resolve=True)
+
     save_ckpt_callback = SaveCkptCallback(
         run_name=cfg.output_model_name,
         cfg=cfg.model,
         epoch_interval=1,
+        hf_cfg=hf_cfg,
     )
 
     trainer = pl.Trainer(

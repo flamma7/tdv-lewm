@@ -3,3 +3,4 @@ pip install 'stable-worldmodel[train]==0.1.1' transformers==4.57.1 imageio ale-p
 pip freeze |grep stable
 pip freeze |grep transformers
 wandb login --verify
+hf auth login

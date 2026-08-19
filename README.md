@@ -12,8 +12,11 @@ wandb login --verify
 cd tdv-lewm
 python lewm-runpod.py wandb.enabled=true wandb.config.entity=flamma7-myself wandb.config.project=lewm-test output_model_name=lewm_dual_gpu subdir=lewm_dual_gpu n_gpus=2 trainer.devices=2 +trainer.strategy=ddp optimizer.lr=1.5e-4 data.dataset.name=galilai-group/lewm-pusht
 
-python lewm.py output_model_name=lewm_lr1.5e-4_bs192_gpu6 data.dataset.name=galilai-group/lewm-pusht optimizer.lr=1.5e-4 loader.batch_size=192 wandb.config.entity=flamma7-myself wandb.config.project=lewm-test wandb.enabled=true n_gpus=6 loader.prefetch_factor=2
+python lewm.py output_model_name=lewm_lr1.414e-4_bs256_gpu4 data.dataset.name=galilai-group/lewm-pusht optimizer.lr=1.414e-4 loader.batch_size=256 n_gpus=4 trainer.devices=4 wandb.enabled=false hf.enabled=false
 ```
+Create my output_model_name=lewm_lr{learning-rate}_bs{batch_size}_gpu{n_gpus}
+
+
 
 Also consider downloading the dataset to network drive `/workspace` on a cheap instance
 
