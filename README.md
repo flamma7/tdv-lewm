@@ -1,4 +1,7 @@
 # Runpod instructions
+
+Learnings with community cloud -- always use the US! 
+
 Configures stable-wm and wandb 
 ```
 export STABLEWM_HOME=/workspace
@@ -16,7 +19,14 @@ Also consider downloading the dataset to network drive `/workspace` on a cheap i
 
 I think the issue before was that I was using that dataset instead of lance --> let's try the lance...
 
-# Evaluation Instructions confirmed
+# Evaluatoin Instructions for Lance PushT
+Needed to edit the eval_wm.py script for lance updates backported from main
+Decided to stay on `0.1.1` branch bc shit ain't working on the latest `main`. Probably want to fork and commit my fixes.
+```
+python scripts/plan/eval_wm.py     policy=quentinll/lewm-pusht eval.dataset_name=galilai-group/lewm-pusht
+```
+
+# Evaluation Instructions for H5
 1. Install the working package recipe
 
 [requirements-working.txt](https://github.com/user-attachments/files/31180048/requirements-working.txt)
