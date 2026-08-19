@@ -132,7 +132,7 @@ def lejepa_forward(self, batch, stage, cfg):
     losses_dict = {
         f'{stage}/{k}': v.detach() for k, v in output.items() if 'loss' in k
     }
-    self.log_dict(losses_dict, on_step=True, sync_dist=True)
+    self.log_dict(losses_dict, on_step=True, sync_dist=False) # changed to false for faster ddp training
     return output
 
 
@@ -185,6 +185,11 @@ def run(cfg):
         generator=rnd_gen,
     )
     val_cfg = {**cfg.loader}
+    val_cfg["shuffle"] = False
+    val_cfg["drop_last"] = False
+    val_cfg["num_workers"] = 1
+    val_cfg["persistent_workers"] = False
+    val_cfg["prefetch_factor"] = 1
     val_cfg['shuffle'] = False
     val_cfg['drop_last'] = False
     val = torch.utils.data.DataLoader(val_set, **val_cfg)
@@ -249,7 +254,7 @@ def run(cfg):
     trainer = pl.Trainer(
         **cfg.trainer,
         callbacks=[save_ckpt_callback],
-        num_sanity_val_steps=1,
+        num_sanity_val_steps=0, # TODO turn back after determining if validation workers were problem
         logger=logger,
         enable_checkpointing=True,
     )
