@@ -187,7 +187,7 @@ def run(cfg):
     val_cfg = {**cfg.loader}
     val_cfg["shuffle"] = False
     val_cfg["drop_last"] = False
-    val_cfg["num_workers"] = 1
+    val_cfg["num_workers"] = 4
     val_cfg["persistent_workers"] = False
     val_cfg["prefetch_factor"] = 1
     val_cfg['shuffle'] = False
