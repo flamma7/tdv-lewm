@@ -6,11 +6,14 @@ fi
 export HF_TOKEN="$1"
 export WANDB_API_KEY="$2"
 
-export STABLEWM_HOME=/workspace
-HF_DATASET=galilai-group/lewm-pusht
-HF_DATASET_DIR=galilai-group--lewm-pusht
 
-pip install 'stable-worldmodel[train]==0.1.1' transformers==4.57.1 imageio ale-py hf_transfer
+export STABLEWM_HOME=/workspace
+HF_DATASET=galilai-group/ogb_cube_single
+HF_DATASET_DIR=galilai-group--ogb_cube_single
+# HF_DATASET=galilai-group/lewm-pusht
+# HF_DATASET_DIR=galilai-group--lewm-pusht
+
+pip install 'stable-worldmodel[train]==0.1.1' transformers==4.57.1 imageio ale-py hf_transfer 
 pip freeze |grep stable
 pip freeze |grep transformers
 

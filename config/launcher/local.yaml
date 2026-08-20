@@ -21,5 +21,5 @@ wandb:
 # Auth: HF_TOKEN env var, or `huggingface-cli login`.
 hf:
   enabled: false
-  repo_id: flamma77/lewm-base
+  repo_id: flamma77/lewm-ogb_cube_single
   path_prefix: ${output_model_name}
