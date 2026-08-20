@@ -11,7 +11,7 @@ wandb:
   enabled: false
   config:
     entity: flamma7-myself
-    project: lewm-test
+    project: lewm-variation
     name: ${output_model_name}
     id: ${subdir}
     resume: allow
