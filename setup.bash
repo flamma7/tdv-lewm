@@ -9,4 +9,4 @@ pip freeze |grep transformers
 wandb login --verify
 hf auth login
 
-"hf download ${HF_DATASET} --repo-type dataset --local-dir ${STABLEWM_HOME}/datasets/${HF_DATASET_DIR}/
+hf download ${HF_DATASET} --repo-type dataset --local-dir ${STABLEWM_HOME}/datasets/${HF_DATASET_DIR}/

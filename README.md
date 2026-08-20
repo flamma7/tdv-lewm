@@ -13,6 +13,10 @@ cd tdv-lewm
 python lewm-runpod.py wandb.enabled=true wandb.config.entity=flamma7-myself wandb.config.project=lewm-test output_model_name=lewm_dual_gpu subdir=lewm_dual_gpu n_gpus=2 trainer.devices=2 +trainer.strategy=ddp optimizer.lr=1.5e-4 data.dataset.name=galilai-group/lewm-pusht
 
 python lewm.py output_model_name=lewm_lr1.414e-4_bs256_gpu4 data.dataset.name=galilai-group/lewm-pusht optimizer.lr=1.414e-4 loader.batch_size=256 n_gpus=4 trainer.devices=4 wandb.enabled=false hf.enabled=false
+
+
+
+
 ```
 Create my output_model_name=lewm_lr{learning-rate}_bs{batch_size}_gpu{n_gpus}
 
