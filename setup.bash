@@ -6,7 +6,7 @@ fi
 export HF_TOKEN="$1"
 export WANDB_API_KEY="$2"
 
-export STABLEWM_HOME=/.stablewm # /workspace but let's try in the pod..
+export STABLEWM_HOME=/workspace
 HF_DATASET=galilai-group/lewm-pusht
 HF_DATASET_DIR=galilai-group--lewm-pusht
 
