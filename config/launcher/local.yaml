@@ -11,7 +11,7 @@ wandb:
   enabled: false
   config:
     entity: flamma7-myself
-    project: lewm-${data}
+    project: lewm-cube
     name: ${output_model_name}
     id: ${subdir}
     resume: allow
@@ -22,4 +22,4 @@ wandb:
 hf:
   enabled: false
   repo_id: flamma77/lewm-base
-  path_prefix: ${data}/${output_model_name}
+  path_prefix: cube/${output_model_name}
