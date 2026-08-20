@@ -187,8 +187,8 @@ def run(cfg):
     val_cfg = {**cfg.loader}
     val_cfg["shuffle"] = False
     val_cfg["drop_last"] = False
-    val_cfg["num_workers"] = 4
-    val_cfg["persistent_workers"] = False
+    val_cfg["num_workers"] = 2
+    val_cfg["persistent_workers"] = True
     val_cfg["prefetch_factor"] = 1
     val_cfg['shuffle'] = False
     val_cfg['drop_last'] = False
@@ -254,7 +254,7 @@ def run(cfg):
     trainer = pl.Trainer(
         **cfg.trainer,
         callbacks=[save_ckpt_callback],
-        num_sanity_val_steps=0, # TODO turn back after determining if validation workers were problem
+        num_sanity_val_steps=1,
         logger=logger,
         enable_checkpointing=True,
     )
