@@ -6,7 +6,7 @@ defaults:
 output_model_name: lewm
 subdir: ${hydra:job.id}
 
-num_workers: 6
+num_workers: 8
 train_split: 0.9
 seed: 3072
 img_size: 224
@@ -19,7 +19,7 @@ projector_loss_weight: 1e-3
 dump_object: False
 
 trainer:
-  max_epochs: 100
+  max_epochs: 10
   devices: 4
   accelerator: gpu
   strategy: ddp
@@ -31,7 +31,7 @@ loader:
   num_workers: ${num_workers}
   drop_last: True
   persistent_workers: True
-  prefetch_factor: 2
+  prefetch_factor: 1
   pin_memory: True
   shuffle: True
 
