@@ -10,7 +10,7 @@ python lewm.py \
   data.dataset.name=galilai-group/ogb_cube_single \
   wandb.enabled=false \
   hf.enabled=true \
-  defaults.data=ogb \
+  data=ogb \
   trainer.max_epochs=2
 status=$?
 
