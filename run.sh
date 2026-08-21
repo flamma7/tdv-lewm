@@ -2,7 +2,16 @@
 
 shutdown="${1:-false}"
 
-python lewm.py -cn lewm.yaml output_model_name=lewm_lr1.225e-4_bs256_gpu3 data.dataset.name=galilai-group/ogb_cube_single wandb.enabled=true hf.enabled=true defaults.data=ogb trainer.max_epochs=2
+# TODO revert max_epochs and wandb disabled
+
+python lewm.py \
+  -cn lewm.yaml \
+  output_model_name=lewm_lr1.225e-4_bs256_gpu3 \
+  data.dataset.name=galilai-group/ogb_cube_single \
+  wandb.enabled=false \
+  hf.enabled=true \
+  defaults.data=ogb \
+  trainer.max_epochs=2
 status=$?
 
 if [[ "${shutdown,,}" == "true" ]]; then
