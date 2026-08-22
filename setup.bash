@@ -13,7 +13,16 @@ HF_DATASET_DIR=galilai-group--ogb_cube_single
 # HF_DATASET=galilai-group/lewm-pusht
 # HF_DATASET_DIR=galilai-group--lewm-pusht
 
-pip install 'stable-worldmodel[train]==0.1.1' transformers==4.57.1 imageio ale-py hf_transfer 
+SWM_SRC="./stable-worldmodel"
+if [ ! -d "${SWM_SRC}/.git" ]; then
+  git clone --branch lewm-tdv --single-branch \
+    https://github.com/flamma7/stable-worldmodel.git \
+    "${SWM_SRC}"
+fi
+
+# Editable install from the fork: pulls [train] extras from that pyproject.toml
+# (transformers, stable-pretraining, hydra, wandb) plus the 0.1.1 base deps.
+pip install -e "${SWM_SRC}[train]" transformers==4.57.1 imageio ale-py hf_transfer
 pip freeze |grep stable
 pip freeze |grep transformers
 
