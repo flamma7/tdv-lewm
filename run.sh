@@ -24,7 +24,8 @@ python scripts/train/lewm_tdv.py \
   hf.enabled=true \
   data=ogb \
   trainer.max_epochs=10 \
-  trainer.devices=2 \
+  trainer.devices=2
+  
 status=$?
 
 if [[ "${shutdown,,}" == "true" ]]; then
