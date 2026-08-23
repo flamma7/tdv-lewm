@@ -15,7 +15,7 @@ if [[ "$(basename "$PWD")" != "stable-worldmodel" ]]; then
 fi
 
 python scripts/train/lewm_tdv.py \
-  output_model_name=8_a${alpha}_l${lamb}_lr${lr} \
+  output_model_name=a${alpha}_l${lamb}_lr${lr}_gpu2 \
   data.dataset.name=galilai-group/ogb_cube_single \
   loss.tdv.weight=${alpha} \
   loss.sigreg.weight=${lamb} \
@@ -24,7 +24,9 @@ python scripts/train/lewm_tdv.py \
   hf.enabled=true \
   data=ogb \
   trainer.max_epochs=10 \
-  num_workers=8
+  num_workers=6 \
+  trainer.devices=2 \
+  trainer.strategy=ddp
 
 status=$?
 
