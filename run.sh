@@ -25,8 +25,6 @@ python scripts/train/lewm_tdv.py \
   data=ogb \
   trainer.max_epochs=10 \
   num_workers=6 \
-  trainer.devices=2 \
-  trainer.strategy=ddp
 
 status=$?
 
