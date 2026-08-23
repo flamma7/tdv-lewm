@@ -15,7 +15,7 @@ HF_DATASET_DIR=galilai-group--ogb_cube_single
 
 SWM_SRC="./stable-worldmodel"
 if [ ! -d "${SWM_SRC}/.git" ]; then
-  git clone --branch lewm-tdv --single-branch \
+  git clone --depth 1 --branch lewm-tdv --single-branch \
     https://github.com/flamma7/stable-worldmodel.git \
     "${SWM_SRC}"
 fi
