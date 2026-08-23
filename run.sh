@@ -23,9 +23,8 @@ python scripts/train/lewm_tdv.py \
   wandb.enabled=true \
   hf.enabled=true \
   data=ogb \
-  trainer.max_epochs=10 \
-  trainer.devices=2
-  
+  trainer.max_epochs=10
+
 status=$?
 
 if [[ "${shutdown,,}" == "true" ]]; then
