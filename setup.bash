@@ -1,11 +1,4 @@
-if [ $# -lt 2 ]; then
-  echo "Usage: $0 HF_TOKEN WANDB_API_KEY" >&2
-  exit 1
-fi
-
-export HF_TOKEN="$1"
-export WANDB_API_KEY="$2"
-
+# Run with source setup.bash
 
 export STABLEWM_HOME=/workspace
 HF_DATASET=galilai-group/ogb_cube_single
