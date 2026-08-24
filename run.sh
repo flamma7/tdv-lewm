@@ -15,7 +15,7 @@ if [[ "$(basename "$PWD")" != "stable-worldmodel" ]]; then
 fi
 
 python scripts/train/lewm_tdv.py \
-  output_model_name=start_a${alpha}_l${lamb}_lr${lr} \
+  output_model_name=start2_a${alpha}_l${lamb}_lr${lr} \
   data.dataset.name=galilai-group/ogb_cube_single \
   loss.tdv.weight=${alpha} \
   loss.sigreg.weight=${lamb} \
