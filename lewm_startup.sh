@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+
+# LeWM workload startup script.
+#
+# Assumes the tdv-lewm repository has already been cloned.
+# Runs the smoke test first, loads the environment, validates required
+# variables, and launches the workload.
+#
+# Any failure exits non-zero, causing the container to stop.
+
+set -Eeuo pipefail
+
+cd "$(dirname "${BASH_SOURCE[0]}")"
+
+echo "Running smoke test..."
+python smoke_test.py
+
+echo "Smoke test successful."
+
+echo "Loading environment..."
+source setup.bash
+
+: "${LEWM_LR:?LEWM_LR is not set}"
+: "${LEMW_ALPHA:?LEMW_ALPHA is not set}"
+: "${LEWM_LAMBDA:?LEWM_LAMBDA is not set}"
+
+echo "Starting LeWM..."
+echo "LEWM_LR=${LEWM_LR}"
+echo "LEMW_ALPHA=${LEMW_ALPHA}"
+echo "LEWM_LAMBDA=${LEWM_LAMBDA}"
+
+exec ./run.sh \
+    true \
+    "${LEWM_LR}" \
+    "${LEMW_ALPHA}" \
+    "${LEWM_LAMBDA}"
