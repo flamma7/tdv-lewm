@@ -27,6 +27,8 @@ echo "Smoke test successful."
 echo "Loading environment..."
 source setup.bash
 
+echo "Starting tests"
+
 # : "${LEWM_LR:?LEWM_LR is not set}"
 # : "${LEMW_ALPHA:?LEMW_ALPHA is not set}"
 # : "${LEWM_LAMBDA:?LEWM_LAMBDA is not set}"
