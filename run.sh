@@ -14,9 +14,6 @@ if [[ "$(basename "$PWD")" != "stable-worldmodel" ]]; then
   fi
 fi
 
-interrupted=0
-trap 'interrupted=1' INT TERM
-
 python scripts/train/lewm_tdv.py \
   output_model_name=start2_a${alpha}_l${lamb}_lr${lr} \
   data.dataset.name=galilai-group/ogb_cube_single \
@@ -30,12 +27,6 @@ python scripts/train/lewm_tdv.py \
   num_workers=6 \
 
 status=$?
-
-# Ctrl+C / SIGTERM: keep the pod up even if shutdown=true
-if (( interrupted )) || (( status == 130 )) || (( status == 143 )); then
-  echo "Training interrupted (status=${status}); not shutting down pod" >&2
-  exit "$status"
-fi
 
 if [[ "${shutdown,,}" == "true" ]]; then
   runpodctl stop pod "$RUNPOD_POD_ID"
