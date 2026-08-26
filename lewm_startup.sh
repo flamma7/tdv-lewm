@@ -8,13 +8,20 @@
 #
 # Any failure exits non-zero, causing the container to stop.
 
+#!/usr/bin/env bash
 set -Eeuo pipefail
-
 cd "$(dirname "${BASH_SOURCE[0]}")"
+
+on_error() {
+  ec=$?
+  echo "Startup failed (exit $ec). Recording status and stopping pod ${RUNPOD_POD_ID}..."
+  runpodctl stop pod "$RUNPOD_POD_ID"
+  exit "$ec"
+}
+trap on_error ERR
 
 echo "Running smoke test..."
 python smoke_test.py
-
 echo "Smoke test successful."
 
 echo "Loading environment..."
