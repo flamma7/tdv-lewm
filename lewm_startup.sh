@@ -20,17 +20,17 @@ echo "Smoke test successful."
 echo "Loading environment..."
 source setup.bash
 
-: "${LEWM_LR:?LEWM_LR is not set}"
-: "${LEMW_ALPHA:?LEMW_ALPHA is not set}"
-: "${LEWM_LAMBDA:?LEWM_LAMBDA is not set}"
+# : "${LEWM_LR:?LEWM_LR is not set}"
+# : "${LEMW_ALPHA:?LEMW_ALPHA is not set}"
+# : "${LEWM_LAMBDA:?LEWM_LAMBDA is not set}"
 
-echo "Starting LeWM..."
-echo "LEWM_LR=${LEWM_LR}"
-echo "LEMW_ALPHA=${LEMW_ALPHA}"
-echo "LEWM_LAMBDA=${LEWM_LAMBDA}"
+# echo "Starting LeWM..."
+# echo "LEWM_LR=${LEWM_LR}"
+# echo "LEMW_ALPHA=${LEMW_ALPHA}"
+# echo "LEWM_LAMBDA=${LEWM_LAMBDA}"
 
-exec ./run.sh \
-    true \
-    "${LEWM_LR}" \
-    "${LEMW_ALPHA}" \
-    "${LEWM_LAMBDA}"
+# exec ./run.sh \
+#     true \
+#     "${LEWM_LR}" \
+#     "${LEMW_ALPHA}" \
+#     "${LEWM_LAMBDA}"
