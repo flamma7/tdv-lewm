@@ -14,8 +14,10 @@ if [[ "$(basename "$PWD")" != "stable-worldmodel" ]]; then
   fi
 fi
 
+: "${OUTPUT_MODEL_NAME:?OUTPUT_MODEL_NAME is not set}"
+
 python scripts/train/lewm_tdv.py \
-  output_model_name=start2_a${alpha}_l${lamb}_lr${lr} \
+  output_model_name="${OUTPUT_MODEL_NAME}" \
   data.dataset.name=galilai-group/ogb_cube_single \
   loss.tdv.weight=${alpha} \
   loss.sigreg.weight=${lamb} \
