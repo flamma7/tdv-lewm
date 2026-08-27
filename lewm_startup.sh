@@ -10,11 +10,35 @@
 
 #!/usr/bin/env bash
 set -Eeuo pipefail
+
+LOG_FILE=/workspace/lewm_startup.log
+ERR_FILE=/workspace/lewm_startup_error.log
+mkdir -p /workspace
+touch "$LOG_FILE"
+exec > >(tee -a "$LOG_FILE") 2>&1
+
 cd "$(dirname "${BASH_SOURCE[0]}")"
 
 on_error() {
   ec=$?
-  echo "Startup failed (exit $ec). Recording status and stopping pod ${RUNPOD_POD_ID}..."
+  set +e
+  trap - ERR
+  failed_cmd=${BASH_COMMAND:-unknown}
+  ts=$(date -Is)
+  echo "Startup failed (exit $ec) at ${ts}. Command: ${failed_cmd}"
+  echo "Flushing logs to ${LOG_FILE} and ${ERR_FILE} before stopping pod ${RUNPOD_POD_ID}..."
+  {
+    echo "===== STARTUP FAILED ${ts} ====="
+    echo "exit_code=${ec}"
+    echo "failed_command=${failed_cmd}"
+    echo "pwd=$(pwd)"
+    echo "ANALYSIS=${ANALYSIS:-}"
+    echo "----- log stream -----"
+  } >> "$ERR_FILE"
+  sync
+  sleep 2
+  cat "$LOG_FILE" >> "$ERR_FILE"
+  sync
   runpodctl stop pod "$RUNPOD_POD_ID"
   exit "$ec"
 }
