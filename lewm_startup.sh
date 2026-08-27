@@ -31,8 +31,8 @@ export STABLEWM_HOME=/workspace
 echo "export STABLEWM_HOME=${STABLEWM_HOME}" >> /root/.bashrc
 
 if [[ "${ANALYSIS:-}" == "true" ]]; then
-  echo "ANALYSIS=true: setup complete, skipping training."
-  exit 0
+  echo "ANALYSIS=true: setup complete, skipping training and sleeping forever."
+  exec sleep infinity
 fi
 
 echo "Starting tests"
