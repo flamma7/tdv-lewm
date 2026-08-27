@@ -19,6 +19,7 @@ fi
 SWM_EXTRAS="train"
 if [[ "${ANALYSIS:-}" == "true" ]]; then
   SWM_EXTRAS="train,env"
+  pip install "swig==4.4.1" # install swig before [train,env]
 fi
 pip install -e "${SWM_SRC}[${SWM_EXTRAS}]" transformers==4.57.1 imageio ale-py hf_transfer
 pip freeze |grep stable
