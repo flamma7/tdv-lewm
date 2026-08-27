@@ -15,7 +15,12 @@ fi
 
 # Editable install from the fork: pulls [train] extras from that pyproject.toml
 # (transformers, stable-pretraining, hydra, wandb) plus the 0.1.1 base deps.
-pip install -e "${SWM_SRC}[train]" transformers==4.57.1 imageio ale-py hf_transfer
+# ANALYSIS=true also pulls [env] extras needed for planning/eval scripts.
+SWM_EXTRAS="train"
+if [[ "${ANALYSIS:-}" == "true" ]]; then
+  SWM_EXTRAS="train,env"
+fi
+pip install -e "${SWM_SRC}[${SWM_EXTRAS}]" transformers==4.57.1 imageio ale-py hf_transfer
 pip freeze |grep stable
 pip freeze |grep transformers
 

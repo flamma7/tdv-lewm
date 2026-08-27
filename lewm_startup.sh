@@ -28,6 +28,12 @@ echo "Loading environment..."
 timeout --kill-after=15s 10m bash -ec 'source ./setup.bash'
 # timeout runs in a subshell; re-export so later steps still see it
 export STABLEWM_HOME=/workspace
+echo "export STABLEWM_HOME=${STABLEWM_HOME}" >> /root/.bashrc
+
+if [[ "${ANALYSIS:-}" == "true" ]]; then
+  echo "ANALYSIS=true: setup complete, skipping training."
+  exit 0
+fi
 
 echo "Starting tests"
 
