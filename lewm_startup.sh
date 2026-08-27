@@ -25,7 +25,9 @@ python smoke_test.py
 echo "Smoke test successful."
 
 echo "Loading environment..."
-source setup.bash
+timeout --kill-after=15s 10m bash -ec 'source ./setup.bash'
+# timeout runs in a subshell; re-export so later steps still see it
+export STABLEWM_HOME=/workspace
 
 echo "Starting tests"
 
