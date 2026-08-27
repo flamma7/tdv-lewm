@@ -18,8 +18,10 @@ fi
 # ANALYSIS=true also pulls [env] extras needed for planning/eval scripts.
 SWM_EXTRAS="train"
 if [[ "${ANALYSIS:-}" == "true" ]]; then
+  # Make sure gymnasium only set to mujoco
+  pip install PyOpenGL PyOpenGL_accelerate
+  apt-get update && apt-get install -y libegl1 libopengl0 libgl1 libgles2 libglvnd0
   SWM_EXTRAS="train,env"
-  pip install "swig==4.4.1" # install swig before [train,env]
 fi
 pip install -e "${SWM_SRC}[${SWM_EXTRAS}]" transformers==4.57.1 imageio ale-py hf_transfer
 pip freeze |grep stable
