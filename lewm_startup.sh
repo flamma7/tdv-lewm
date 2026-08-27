@@ -39,7 +39,7 @@ on_error() {
   sleep 2
   cat "$LOG_FILE" >> "$ERR_FILE"
   sync
-  runpodctl stop pod "$RUNPOD_POD_ID"
+  # runpodctl stop pod "$RUNPOD_POD_ID"
   exit "$ec"
 }
 trap on_error ERR
