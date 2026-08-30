@@ -6,6 +6,12 @@
 # Requires MODE=train|eval plus HF_DATASET and HF_DATASET_DIR.
 # Runs the smoke test, install.sh, then each CMD_0, CMD_1, ... until unset.
 # Any failure exits non-zero, causing the container to stop.
+#
+# DRY_RUN:
+#   If DRY_RUN is set (export DRY_RUN=1 or similar), this script will skip the
+#   main install and command execution logic after performing environment checks.
+#   This allows you to manually run portions such as test_install.sh or individual
+#   CMD_0 commands for debugging, without executing the full workflow.
 
 set -Eeuo pipefail
 
@@ -61,10 +67,21 @@ python smoke_test.py
 echo "Smoke test successful."
 
 echo "Installing environment..."
-timeout --kill-after=15s 10m bash ./install.sh "${HF_DATASET}" "${HF_DATASET_DIR}" "${MODE}"
 # timeout runs in a subshell; re-export so later steps still see it
 export STABLEWM_HOME=/workspace
 echo "export STABLEWM_HOME=${STABLEWM_HOME}" >> /root/.bashrc
+echo "export test_install='bash ./install.sh \"\${HF_DATASET}\" \"\${HF_DATASET_DIR}\" \"\${MODE}\"'" >> /root/.bashrc
+
+if [[ "${DRY_RUN:-}" == "1" ]]; then
+  echo "DRY_RUN is set; skipping install and waiting indefinitely."
+  # Export CMD_0 to .bashrc as a new command if set and in DRY_RUN
+  if [[ -n "${CMD_0:-}" ]]; then
+    echo "export run_cmd_0='${CMD_0}'" >> /root/.bashrc
+  fi
+  sleep infinity
+else
+  timeout --kill-after=15s 10m bash ./install.sh "${HF_DATASET}" "${HF_DATASET_DIR}" "${MODE}"
+fi
 
 echo "Starting commands"
 
