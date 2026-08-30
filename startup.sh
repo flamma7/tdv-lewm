@@ -143,7 +143,8 @@ echo "Starting Vector using ${VECTOR_CONFIG}..."
 # could ingest its own logs and create a feedback loop.
 vector \
   --config "$VECTOR_CONFIG" \
-  --require-healthy \
+  --require-healthy true \
+  --dangerously-allow-env-var-interpolation \
   --graceful-shutdown-limit-secs 10 \
   >"$VECTOR_INTERNAL_LOG" 2>&1 &
 
