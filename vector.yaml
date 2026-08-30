@@ -1,0 +1,34 @@
+data_dir: /tmp/vector-data
+
+sources:
+  runpod_logs:
+    type: file
+    include:
+      - /tmp/runpod-logs/combined.log
+    read_from: beginning
+
+transforms:
+  enrich:
+    type: remap
+    inputs:
+      - runpod_logs
+    source: |
+      .pod_id = get_env_var!("RUNPOD_POD_ID")
+      .service = "runpod"
+      .environment = "production"
+
+sinks:
+  axiom:
+    type: axiom
+    inputs:
+      - enrich
+    dataset: "${AXIOM_DATASET}"
+    token: "${AXIOM_TOKEN}"
+
+    batch:
+      timeout_secs: 0.5
+
+    buffer:
+      type: memory
+      max_events: 500
+      when_full: block
