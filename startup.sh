@@ -29,6 +29,8 @@ VECTOR_CONFIG="${SCRIPT_DIR}/vector.yaml"
 VECTOR_DATA_DIR=/tmp/vector-data
 VECTOR_INTERNAL_LOG=/tmp/vector-internal.log
 VECTOR_PID=""
+TEE_PID=""
+TEE_FIFO=/tmp/startup-tee.fifo
 
 mkdir -p /workspace
 mkdir -p "$VECTOR_DATA_DIR"
@@ -42,14 +44,44 @@ touch "$VECTOR_INTERNAL_LOG"
 export PYTHONUNBUFFERED=1
 
 # Capture stdout + stderr from this script and every child process.
-# Output still appears in the Runpod console while also being written to the
-# file that Vector tails and sends to Axiom.
-exec > >(tee -a "$LOG_FILE") 2>&1
+# A FIFO + tracked tee is used instead of `exec > >(tee ...)` so we can close
+# the pipe and wait for tee to flush before Vector is stopped. Process
+# substitution is asynchronous: on ERR, the last error lines often still sit
+# in tee's buffer when Vector is killed, so they never reach Axiom.
+exec 3>&1 4>&2
+rm -f "$TEE_FIFO"
+mkfifo "$TEE_FIFO"
+
+if command -v stdbuf >/dev/null 2>&1; then
+  stdbuf -oL -eL tee -a "$LOG_FILE" <"$TEE_FIFO" >&3 2>&4 &
+else
+  tee -a "$LOG_FILE" <"$TEE_FIFO" >&3 2>&4 &
+fi
+TEE_PID=$!
+exec >"$TEE_FIFO" 2>&1
 
 
 # ---------------------------------------------------------------------------
 # Vector / Axiom
 # ---------------------------------------------------------------------------
+
+# Close the FIFO so tee sees EOF, waits for it to exit (flushing the log
+# file), then give Vector time to ingest the last lines and ACK to Axiom.
+flush_logs() {
+  if [[ -n "${TEE_PID:-}" ]]; then
+    # Restore the original console fds; this closes the FIFO write end.
+    exec 1>&3 2>&4
+    wait "$TEE_PID" 2>/dev/null || true
+    TEE_PID=""
+    rm -f "$TEE_FIFO"
+  fi
+
+  sync "$LOG_FILE" 2>/dev/null || sync
+
+  # Vector file source + axiom batch.timeout_secs (0.5). Wait long enough
+  # for the last lines to be read, batched, and in-flight to Axiom.
+  sleep 2
+}
 
 stop_vector() {
   if [[ -n "${VECTOR_PID:-}" ]] && kill -0 "$VECTOR_PID" 2>/dev/null; then
@@ -58,6 +90,19 @@ stop_vector() {
     wait "$VECTOR_PID" 2>/dev/null || true
     echo "Vector stopped."
   fi
+}
+
+write_failure_record() {
+  local dest=$1
+  {
+    echo "===== STARTUP FAILED ${ts} ====="
+    echo "timestamp=${ts}"
+    echo "exit_code=${ec}"
+    echo "failed_command=${failed_cmd}"
+    echo "pwd=$(pwd)"
+    echo "MODE=${MODE:-}"
+    echo "pod_id=${RUNPOD_POD_ID:-}"
+  } >> "$dest"
 }
 
 on_error() {
@@ -77,24 +122,19 @@ on_error() {
   echo "MODE=${MODE:-}"
   echo "pod_id=${RUNPOD_POD_ID:-}"
 
-  {
-    echo "===== STARTUP FAILED ${ts} ====="
-    echo "exit_code=${ec}"
-    echo "failed_command=${failed_cmd}"
-    echo "pwd=$(pwd)"
-    echo "MODE=${MODE:-}"
-    echo "pod_id=${RUNPOD_POD_ID:-}"
-  } >> "$ERR_FILE"
+  # Direct writes: do not depend on the async tee for the record Vector tails.
+  write_failure_record "$LOG_FILE"
+  write_failure_record "$ERR_FILE"
 
-  sync
+  flush_logs
 
-  # Give tee a moment to write the final error output.
+  # After tee is closed, append once more so Vector cannot miss the banner.
+  write_failure_record "$LOG_FILE"
+  write_failure_record "$ERR_FILE"
+  sync "$LOG_FILE" 2>/dev/null || sync
   sleep 1
 
-  # Gracefully stop Vector so its final batch is sent to Axiom.
   stop_vector
-
-  sync
 
   echo "Startup failed; stopping pod ${RUNPOD_POD_ID:-unknown}."
 
@@ -145,7 +185,7 @@ vector \
   --config "$VECTOR_CONFIG" \
   --require-healthy true \
   --dangerously-allow-env-var-interpolation \
-  --graceful-shutdown-limit-secs 10 \
+  --graceful-shutdown-limit-secs 20 \
   >"$VECTOR_INTERNAL_LOG" 2>&1 &
 
 VECTOR_PID=$!
@@ -259,10 +299,8 @@ echo "timestamp=$(date -Is)"
 echo "pod_id=${RUNPOD_POD_ID:-}"
 echo "All commands completed successfully."
 
-# Allow tee to finish writing the final messages before stopping Vector.
-sleep 1
+flush_logs
 
-# Gracefully shut down Vector so the final batch reaches Axiom.
 stop_vector
 
 sync

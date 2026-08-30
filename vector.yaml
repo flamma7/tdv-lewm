@@ -5,6 +5,7 @@ sources:
     type: file
     include:
       - /workspace/startup.log
+      - /workspace/startup_error.log
     read_from: beginning
 
 transforms:
@@ -13,9 +14,9 @@ transforms:
     inputs:
       - runpod_logs
     source: |
-      .pod_id = get_env_var!("RUNPOD_POD_ID")
+      .pod_id = get_env_var("RUNPOD_POD_ID") ?? "unknown"
       .service = "runpod"
-      .mode = get_env_var!("MODE")
+      .mode = get_env_var("MODE") ?? "unknown"
 
 sinks:
   axiom:
@@ -24,6 +25,9 @@ sinks:
       - enrich
     dataset: "${AXIOM_DATASET}"
     token: "${AXIOM_TOKEN}"
+
+    acknowledgements:
+      enabled: true
 
     batch:
       timeout_secs: 0.5
