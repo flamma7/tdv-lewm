@@ -4,7 +4,7 @@ sources:
   runpod_logs:
     type: file
     include:
-      - /tmp/runpod-logs/combined.log
+      - /workspace/startup.log
     read_from: beginning
 
 transforms:
@@ -15,7 +15,7 @@ transforms:
     source: |
       .pod_id = get_env_var!("RUNPOD_POD_ID")
       .service = "runpod"
-      .environment = "production"
+      .mode = get_env_var!("MODE")
 
 sinks:
   axiom:
