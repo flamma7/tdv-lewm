@@ -84,6 +84,8 @@ else
 fi
 
 echo "Starting commands"
+cd "$(dirname "${BASH_SOURCE[0]}")/stable-worldmodel"
+echo "cwd=$(pwd)"
 
 i=0
 while true; do
