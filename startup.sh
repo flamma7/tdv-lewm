@@ -221,6 +221,8 @@ fi
 echo "MODE=${MODE}"
 echo "HF_DATASET=${HF_DATASET}"
 echo "HF_DATASET_DIR=${HF_DATASET_DIR}"
+echo "HF_REPO=${HF_REPO:-}"
+echo "HF_SUBDIR=${HF_SUBDIR:-}"
 echo "RUNPOD_POD_ID=${RUNPOD_POD_ID:-}"
 echo "Working directory=$(pwd)"
 
@@ -232,6 +234,7 @@ echo "Working directory=$(pwd)"
 echo "Running smoke test..."
 python smoke_test.py
 echo "Smoke test successful."
+python pod_heartbeat.py A
 
 
 # ---------------------------------------------------------------------------
@@ -261,6 +264,7 @@ else
     "${HF_DATASET}" \
     "${HF_DATASET_DIR}" \
     "${MODE}"
+  python pod_heartbeat.py B
 fi
 
 
