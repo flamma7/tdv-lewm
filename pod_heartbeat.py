@@ -4,8 +4,8 @@
     python pod_heartbeat.py A
     python pod_heartbeat.py B
 
-Reads HF_REPO, HF_SUBDIR, RUNPOD_POD_ID, and HF_TOKEN from the environment.
-Writes {HF_SUBDIR}/pod_startup/{pod_id}-{A|B}.txt on the model repo.
+Reads HF_REPO, RUNPOD_POD_ID, and HF_TOKEN from the environment.
+Writes pod_startup/{pod_id}-{A|B}.txt on the model repo.
 """
 
 from __future__ import annotations
@@ -101,12 +101,11 @@ def main():
 
     stage = sys.argv[1]
     repo = env("HF_REPO")
-    subdir = env("HF_SUBDIR")
     pod_id = env("RUNPOD_POD_ID")
     token = env("HF_TOKEN", "HUGGING_FACE_HUB_TOKEN")
 
-    if not repo or not subdir:
-        print("pod_heartbeat: skip (HF_REPO / HF_SUBDIR not set)")
+    if not repo:
+        print("pod_heartbeat: skip (HF_REPO not set)")
         return
     if not pod_id:
         print("pod_heartbeat: skip (RUNPOD_POD_ID not set)")
@@ -115,7 +114,7 @@ def main():
         print("pod_heartbeat: skip (HF_TOKEN not set)")
         return
 
-    rel = f"{subdir.strip('/')}/pod_startup/{pod_id}-{stage}.txt"
+    rel = f"pod_startup/{pod_id}-{stage}.txt"
     text = (
         f"stage={stage}\n"
         f"pod_id={pod_id}\n"
