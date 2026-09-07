@@ -4,7 +4,7 @@
 #
 # Assumes the tdv-lewm repository has already been cloned.
 # Requires MODE=train|eval plus HF_DATASET and HF_DATASET_DIR.
-# Runs the smoke test, install.sh, then each CMD_0, CMD_1, ... until unset.
+# Runs the smoke test, install.sh, then each CMD_0, CMD_1, ... until unset/empty.
 # Any failure exits non-zero, causing the container to stop.
 #
 # DRY_RUN:
@@ -277,7 +277,7 @@ i=0
 while true; do
   varname="CMD_${i}"
 
-  if [[ -z "${!varname+x}" ]]; then
+  if [[ -z "${!varname:-}" ]]; then
     echo "No ${varname}; command loop complete."
     break
   fi
