@@ -226,9 +226,8 @@ echo "HF_SUBDIR=${HF_SUBDIR:-}"
 echo "RUNPOD_POD_ID=${RUNPOD_POD_ID:-}"
 echo "Working directory=$(pwd)"
 
-SWM_SRC="./stable-worldmodel"
-if [[ -d "${SWM_SRC}" ]]; then
-  echo "${SWM_SRC} already exists; skipping smoke test/install and waiting indefinitely."
+if [[ -d "/workspace/results" ]]; then
+  echo "/workspace/results already exists; skipping smoke test/install and waiting indefinitely."
   sleep infinity
 fi
 
