@@ -8,10 +8,11 @@
 # Any failure exits non-zero, causing the container to stop.
 #
 # DRY_RUN:
-#   If DRY_RUN is set (export DRY_RUN=1 or similar), this script will skip the
-#   main install and command execution logic after performing environment checks.
-#   This allows you to manually run portions such as test_install.sh or individual
-#   CMD_0 commands for debugging, without executing the full workflow.
+#   If DRY_RUN is set (export DRY_RUN=1 or similar), or ./stable-worldmodel
+#   already exists, this script will skip the main install and command
+#   execution logic after performing environment checks. This allows you to
+#   manually run portions such as test_install.sh or individual CMD_0
+#   commands for debugging, without executing the full workflow.
 
 set -Eeuo pipefail
 
@@ -248,6 +249,12 @@ export STABLEWM_HOME=/workspace
 
 echo "export STABLEWM_HOME=${STABLEWM_HOME}" >> /root/.bashrc
 echo "export test_install='bash ./install.sh \"\${HF_DATASET}\" \"\${HF_DATASET_DIR}\" \"\${MODE}\"'" >> /root/.bashrc
+
+SWM_SRC="./stable-worldmodel"
+if [[ -d "${SWM_SRC}" ]]; then
+  echo "${SWM_SRC} already exists; treating as DRY_RUN (skipping install)."
+  DRY_RUN=1
+fi
 
 if [[ "${DRY_RUN:-}" == "1" ]]; then
   echo "DRY_RUN is set; skipping install and waiting indefinitely."
