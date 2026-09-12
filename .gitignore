@@ -1,3 +1,15 @@
 .env
 .COMMANDS.md
 *.code-workspace
+
+# install.sh clones this next to deploy/
+/stable-worldmodel/
+
+outputs/
+multirun/
+/tmp_results/
+/results/
+/data/
+*.npz
+*.png
+__pycache__/

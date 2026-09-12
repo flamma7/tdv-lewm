@@ -4,7 +4,8 @@
 #
 # Assumes the tdv-lewm repository has already been cloned.
 # Requires MODE=train|eval plus HF_DATASET and HF_DATASET_DIR.
-# Runs the smoke test, install.sh, then each CMD_0, CMD_1, ... until unset/empty.
+# Runs the smoke test, install.sh, then each CMD_0, CMD_1, ... from the repo
+# root until unset/empty.
 # Any failure exits non-zero, causing the container to stop.
 #
 # DRY_RUN:
@@ -279,8 +280,6 @@ fi
 # ---------------------------------------------------------------------------
 
 echo "Starting commands"
-
-cd stable-worldmodel
 
 i=0
 
