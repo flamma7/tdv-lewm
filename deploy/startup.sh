@@ -20,7 +20,8 @@ set -Eeuo pipefail
 # ---------------------------------------------------------------------------
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+cd "$REPO_ROOT"
 
 LOG_FILE=/workspace/startup.log
 ERR_FILE=/workspace/startup_error.log
@@ -237,9 +238,9 @@ fi
 # ---------------------------------------------------------------------------
 
 echo "Running smoke test..."
-python smoke_test.py
+python "${SCRIPT_DIR}/smoke_test.py"
 echo "Smoke test successful."
-python pod_heartbeat.py A
+python "${SCRIPT_DIR}/pod_heartbeat.py" A
 
 
 # ---------------------------------------------------------------------------
@@ -252,7 +253,7 @@ echo "Installing environment..."
 export STABLEWM_HOME=/workspace
 
 echo "export STABLEWM_HOME=${STABLEWM_HOME}" >> /root/.bashrc
-echo "export test_install='bash ./install.sh \"\${HF_DATASET}\" \"\${HF_DATASET_DIR}\" \"\${MODE}\"'" >> /root/.bashrc
+echo "export test_install='bash ${SCRIPT_DIR}/install.sh \"\${HF_DATASET}\" \"\${HF_DATASET_DIR}\" \"\${MODE}\"'" >> /root/.bashrc
 
 if [[ "${DRY_RUN:-}" == "1" ]]; then
   echo "DRY_RUN is set; skipping install and waiting indefinitely."
@@ -265,11 +266,11 @@ if [[ "${DRY_RUN:-}" == "1" ]]; then
   sleep infinity
 else
   timeout --kill-after=15s 10m \
-    bash ./install.sh \
+    bash "${SCRIPT_DIR}/install.sh" \
     "${HF_DATASET}" \
     "${HF_DATASET_DIR}" \
     "${MODE}"
-  python pod_heartbeat.py B
+  python "${SCRIPT_DIR}/pod_heartbeat.py" B
 fi
 
 

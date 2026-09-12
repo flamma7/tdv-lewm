@@ -1,19 +1,22 @@
 #!/usr/bin/env bash
-# Usage: ./install.sh HF_DATASET HF_DATASET_DIR MODE
+# Usage: ./deploy/install.sh HF_DATASET HF_DATASET_DIR MODE
 
 set -Eeuo pipefail
 
-HF_DATASET="${1:?Usage: ./install.sh HF_DATASET HF_DATASET_DIR MODE}"
-HF_DATASET_DIR="${2:?Usage: ./install.sh HF_DATASET HF_DATASET_DIR MODE}"
-MODE="${3:?Usage: ./install.sh HF_DATASET HF_DATASET_DIR MODE}"
+HF_DATASET="${1:?Usage: ./deploy/install.sh HF_DATASET HF_DATASET_DIR MODE}"
+HF_DATASET_DIR="${2:?Usage: ./deploy/install.sh HF_DATASET HF_DATASET_DIR MODE}"
+MODE="${3:?Usage: ./deploy/install.sh HF_DATASET HF_DATASET_DIR MODE}"
 if [[ "${MODE}" != "train" && "${MODE}" != "eval" ]]; then
   echo "MODE must be 'train' or 'eval', got '${MODE}'" >&2
   exit 1
 fi
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
 export STABLEWM_HOME=/workspace
 
-SWM_SRC="./stable-worldmodel"
+SWM_SRC="${REPO_ROOT}/stable-worldmodel"
 if [ ! -d "${SWM_SRC}/.git" ]; then
   git clone --depth 1 --branch lewm-tdv --single-branch \
     https://github.com/flamma7/stable-worldmodel.git \
