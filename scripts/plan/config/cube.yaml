@@ -42,6 +42,7 @@ eval:
   img_size: 224
   dataset_name: ogbench/cube_single_expert.h5
   save_video: false  # set true to write env_*.mp4 per env
+  video_label: agent  # first-column caption in saved mp4s
   callables:
     # -- set state
     - method: set_state

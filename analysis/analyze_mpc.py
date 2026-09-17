@@ -2,6 +2,7 @@
 
 python analysis/analyze_mpc.py data/
 python analysis/analyze_mpc.py data/ogb_cube_table.npz
+python analysis/analyze_mpc.py analysis/scenarios --noop-table --seed 7 --method icem
 """
 
 import argparse
@@ -136,21 +137,34 @@ def load_records(path):
         if 'arm_displacement' in names
         else None
     )
+    if 'scenario' in names:
+        scenario = np.asarray(records['scenario'])
+    else:
+        scenario = np.arange(len(records), dtype=np.int32)
     cube_noop = cube_d < DISTANCE_EDGES[0]
+    grip_noop = (
+        arm_d < DISTANCE_EDGES[0]
+        if arm_d is not None
+        else np.zeros(len(records), dtype=bool)
+    )
+    both_noop = cube_noop & grip_noop
     keep = ~cube_noop
     if arm_d is not None:
-        keep = keep & ~(arm_d < DISTANCE_EDGES[0])
+        keep = keep & ~grip_noop
 
     return {
         'file': path.name,
         'n': len(records),
         'n_excl': int(keep.sum()),
+        'scenario': scenario,
         'cube_d': cube_d,
         'arm_d': arm_d,
         'cube_success': cube_success,
         'gripper_success': gripper_success,
         'both_success': both_success,
         'cube_noop': cube_noop,
+        'grip_noop': grip_noop,
+        'both_noop': both_noop,
         'keep': keep,
     }
 
@@ -345,6 +359,115 @@ def metrics_row(data):
     }
 
 
+def _fmt_ids(ids):
+    ids = [int(i) for i in np.asarray(ids).reshape(-1)]
+    if not ids:
+        return '(none)'
+    return ', '.join(str(i) for i in ids)
+
+
+def _model_label(filename):
+    info = parse_method_seed(filename)
+    return info['model'] if info['method'] else Path(filename).stem
+
+
+def _same_scenarios(a, b):
+    if a['n'] != b['n']:
+        return False
+    if not np.array_equal(a['scenario'], b['scenario']):
+        return False
+    if not np.allclose(a['cube_d'], b['cube_d'], atol=1e-6, equal_nan=True):
+        return False
+    if a['arm_d'] is None or b['arm_d'] is None:
+        return a['arm_d'] is None and b['arm_d'] is None
+    return np.allclose(a['arm_d'], b['arm_d'], atol=1e-6, equal_nan=True)
+
+
+def print_noop_table(dataset, seed, method):
+    """Print no-op scenario ids and per-model both-no-op successes."""
+    dataset = sorted(dataset, key=lambda data: _model_label(data['file']))
+    thresh = DISTANCE_EDGES[0]
+    ref = dataset[0]
+    mismatched = [
+        data['file'] for data in dataset[1:] if not _same_scenarios(ref, data)
+    ]
+    print()
+    print('=' * 72)
+    print(
+        f'no-op scenarios  method={method}  seed={seed}  '
+        f'n={ref["n"]}  thresh={thresh}'
+    )
+    print('=' * 72)
+    if mismatched:
+        print(
+            'warning: these dumps do not share the same scenarios as '
+            f'{ref["file"]}: {", ".join(mismatched)}'
+        )
+        print('using no-op ids from the first matching file')
+
+    scenario = ref['scenario']
+    groups = (
+        ('both', ref['both_noop']),
+        ('cube', ref['cube_noop']),
+        ('gripper', ref['grip_noop']),
+    )
+    print()
+    print('no-op scenario numbers')
+    label_w = max(len(name) for name, _ in groups)
+    for name, mask in groups:
+        ids = scenario[mask]
+        print(f'  {name:<{label_w}}  ({len(ids):>3}):  {_fmt_ids(ids)}')
+
+    both_mask = ref['both_noop']
+    n_both = int(both_mask.sum())
+    print()
+    print(f'both-no-op correct  ({n_both} both-no-op scenarios)')
+    model_w = max(len(_model_label(data['file'])) for data in dataset)
+    for data in dataset:
+        both = data['both_success']
+        if both is None:
+            print(f'  {_model_label(data["file"]):<{model_w}}  n/a')
+            continue
+        if not _same_scenarios(ref, data):
+            ids = data['scenario'][data['both_noop'] & both]
+            print(
+                f'  {_model_label(data["file"]):<{model_w}}  '
+                f'(unaligned)  {_fmt_ids(ids)}'
+            )
+            continue
+        ids = scenario[both_mask & both]
+        print(
+            f'  {_model_label(data["file"]):<{model_w}}  '
+            f'({len(ids)}/{n_both}):  {_fmt_ids(ids)}'
+        )
+
+    aligned = [data for data in dataset if _same_scenarios(ref, data)]
+    if len(aligned) < 2:
+        return
+    print()
+    print('exclusive both-success (this approach only)')
+    for data in aligned:
+        label = _model_label(data['file'])
+        both = data['both_success']
+        if both is None:
+            print(f'  {label:<{model_w}}  n/a')
+            continue
+        others = [
+            other['both_success']
+            for other in aligned
+            if other is not data and other['both_success'] is not None
+        ]
+        exclusive = both.copy()
+        for other in others:
+            exclusive &= ~other
+        ids = scenario[exclusive]
+        ids_real = scenario[exclusive & data['keep']]
+        print(f'  {label:<{model_w}}  all      ({len(ids)}):  {_fmt_ids(ids)}')
+        print(
+            f'  {"":<{model_w}}  ex-noop  ({len(ids_real)}):  {_fmt_ids(ids_real)}'
+        )
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -360,10 +483,32 @@ def main():
             f'{DISTANCE_EDGES[0]}) from per-file charts'
         ),
     )
+    parser.add_argument(
+        '--noop-table',
+        action='store_true',
+        help=(
+            'print no-op scenario numbers and per-approach both-no-op '
+            'successes for --seed and --method'
+        ),
+    )
+    parser.add_argument(
+        '--seed',
+        type=int,
+        default=None,
+        help='filter dumps to this seed (required with --noop-table)',
+    )
+    parser.add_argument(
+        '--method',
+        default=None,
+        help='filter dumps to this planner (required with --noop-table)',
+    )
     args = parser.parse_args()
+    if args.noop_table and (args.seed is None or not args.method):
+        parser.error('--noop-table requires --seed and --method')
 
     paths = collect_npz_paths(args.path)
     rows = []
+    loaded = []
     skipped = []
     for path in paths:
         try:
@@ -374,6 +519,11 @@ def main():
         except (ValueError, OSError, KeyError) as exc:
             skipped.append((path, exc))
             continue
+        info = parse_method_seed(data['file'])
+        if args.seed is not None and info['seed'] != args.seed:
+            continue
+        if args.method and info['method'].lower() != args.method.lower():
+            continue
         if rows:
             print()
         print('=' * 72)
@@ -381,8 +531,14 @@ def main():
         print('=' * 72)
         print_file_charts(data, args.exclude_noop)
         rows.append(metrics_row(data))
+        loaded.append(data)
 
     if not rows:
+        if args.seed is not None or args.method:
+            raise SystemExit(
+                'no valid eval .npz files matched '
+                f'seed={args.seed} method={args.method}'
+            )
         raise SystemExit('no valid eval .npz files to analyze')
 
     print()
@@ -391,6 +547,8 @@ def main():
           f'{DISTANCE_EDGES[0]})')
     print('=' * 72)
     print_comparison_table(rows)
+    if args.noop_table:
+        print_noop_table(loaded, args.seed, args.method)
     if skipped:
         print()
         print('skipped:')

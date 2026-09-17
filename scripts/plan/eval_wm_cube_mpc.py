@@ -456,6 +456,7 @@ def run(cfg: DictConfig):
                 episodes_idx=eval_episodes_list[start:end],
                 callables=callables,
                 video=video_dir,
+                video_label=str(cfg.eval.get('video_label', 'agent')),
             )
         finally:
             eval_world._run = orig_run
