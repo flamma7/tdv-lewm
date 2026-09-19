@@ -274,15 +274,15 @@ th:not(:first-child) {
   text-align: center;
 }
 
-#approach h2 {
+#overview h2 {
   margin-bottom: 0.35rem;
 }
 
-.approach-figure {
+.overview-figure {
   margin: 0.25rem 0 0.35rem;
 }
 
-#approach .eq {
+#overview .eq {
   margin-top: 0.35rem;
 }
 

@@ -51,9 +51,9 @@
     </div>
     <figcaption>
       <strong>a)</strong> TDV-LeWM and the released LeWM checkpoint attempting to optimize the latent goal state.
-      <strong>b)</strong> No-operation (no-op) trial where the agent succeeds without necessitating any action (zero displacement of cube from goal state), inflating OGBenchCube success metrics.
+      <strong>b)</strong> No-operation (no-op) trial where the agent succeeds without necessitating any action (zero displacement of cube from goal state). These are abundant in the evaluation set and inflate success rates on OGBenchCube.
       <strong>c)</strong> CEM planning success rates and no-op effects for the cube, gripper and both objects across 3 seeds (15k runs) for TDV-LeWM, LeWM’s released checkpoint
-      (\(\mathrm{LeWM_{PUB}}\)) and my reproduction of LeWM (\(\mathrm{LeWM_{REP}}\)).
+      (\(\mathrm{LeWM_{PUB}}\)) and my reproduction of LeWM (\(\mathrm{LeWM_{REP}}\)). 
     </figcaption>
     </figure>
 
@@ -77,10 +77,17 @@
       All models prioritize the gripper over the cube when optimizing toward the goal latent.
       This is consistent with the gripper occupying more pixels and therefore more of the latent manifold that MPC optimizes.
     </p>
+    <p>
+      <strong>Summary.</strong>
+      I took LeWM’s architecture and applied a TDV-inspired loss to bias the latent space toward motion and pixel differences.
+      This was motivated by TDV’s gains over other SSL methods in visually dense environments, which I hypothesized could aid LeWM’s performance in the visually complex task of OGBenchCube.
+      In the process I discovered a large confound of no-op scenarios in the evaluation set that was inflating LeWM and likely many other world models’ performances.
+      TDV-LeWM outperforms LeWM on optimizing the position of the cube, gripper and both objects, and its lead extends when removing no-op scenarios, supporting the hypothesis that biasing the latent space toward motion and pixel differences helps planning in visually dense environments.
+    </p>
 
-    <section id="approach">
-    <h2>Approach</h2>
-    <figure class="approach-figure">
+    <section id="overview">
+    <h2>Overview</h2>
+    <figure class="overview-figure">
       <img src="assets/overview.jpg" alt="TDV-LeWM architecture: image encoder, motion encoder on pixel differences with cross-attention to H_t, predictor, SIGReg, and TDV losses.">
       <figcaption>
         TDV-LeWM training. The image encoder produces \(z_t\) and features \(H_t\). The motion encoder maps
@@ -92,26 +99,23 @@
 
     <div class="eq">
       $$(z_t, H_t) = \mathrm{Enc}(x_t), \qquad \hat{z}_{t+1} = \mathrm{Pred}(x_t, a_t)$$
-      $$\Delta z_t = m(\Delta x_t, H_t), \qquad \mathcal{L}_{\mathrm{TDV}} = \lVert z_t + \Delta z_t - z_{t+1} \rVert^2$$
+      $$\Delta z_t = m_\phi(\Delta x_t, H_t), \qquad \mathcal{L}_{\mathrm{TDV}} = \lVert z_t + \Delta z_t - z_{t+1} \rVert^2$$
       $$\mathcal{L} = \mathcal{L}_{\mathrm{pred}} + \lambda\,\mathcal{L}_{\mathrm{SIGReg}} + \alpha\,\mathcal{L}_{\mathrm{TDV}}$$
     </div>
 
     <ul>
       <li>
-        <strong>Summary.</strong>
-        I took LeWM’s architecture and applied a TDV-inspired loss to bias the latent space toward motion and pixel differences.
-        This was motivated by TDV’s gains over other SSL methods in visually dense environments, which I hypothesized could aid LeWM’s performance in the visually complex task of OGBenchCube.
-        In the process I discovered a large confound of no-op scenarios in the evaluation set that was inflating LeWM and likely many other world models’ performances.
-        TDV-LeWM outperforms LeWM on optimizing the position of the cube, gripper and both objects, and its lead extends when removing no-op scenarios, supporting the hypothesis that biasing the latent space toward motion and pixel differences helps planning in visually dense environments.
+        <strong>Architecture.</strong>
+        I augment LeWM with a motion encoder and a TDV-style temporal prediction loss. The motion encoder \(m_\phi\) takes the pixel difference \(\Delta x_t\) and cross-attends to the current latent feature map \(H_t\), producing a latent displacement \(\Delta z_t\). This displacement is trained such that \(z_t+\Delta z_t\approx z_{t+1}\).
       </li>
       <li>
         <strong>Collapse prevention.</strong>
-        I kept LeWM’s SIGReg term and did not retrain TDV’s DINO-style teacher network with a stop-gradient.
+        I kept LeWM’s SIGReg term and did not retrain TDV’s DINO-style teacher network with a stop-gradient (redundant with SIGReg regularization).
       </li>
       <li>
         <strong>Motion encoder.</strong>
         \(\Delta x_t = x_{t+1} - x_t\) is patchified and fed to a ViT-T/14 motion encoder that cross-attends to the
-        image encoder’s feature map \(H_t\). TDV found that contextualizing pixel differences with the current latent
+        image encoder’s feature map \(H_t\). \(\Delta z_t\) is outputted from the CLS token. The TDV paper found that contextualizing pixel differences with the current latent
         was important.
       </li>
       <li>
@@ -119,12 +123,13 @@
         OGBench-Cube (single cube) through
         <a href="https://github.com/galilai-group/stable-worldmodel">stable-worldmodel</a>
         (<a href="https://huggingface.co/datasets/galilai-group/ogb_cube_single">galilai-group/ogb_cube_single</a>).
+        I kept the usual frameskip of 5 and scenario horizon of 25.
       </li>
       <li>
-        <strong>No-op analysis.</strong>
+        <strong>No-op Analysis.</strong>
         A no-op is a scenario whose start displacement is already below the 0.04 success threshold.
         In the OGBench-Cube sampling used by stable-worldmodel, about 38% of eval scenarios are cube no-ops
-        (the cube is the object typically used for success by the library),
+        (the object typically used for success rates),
         ~9% are gripper no-ops, and ~4% are both (union ~43%).
         These cases inflate reported success, especially cube and both-object metrics.
       </li>
@@ -137,14 +142,17 @@
         (<code>lewm_lam0.1_lr5e-5</code>).
       </li>
       <li>
-        <strong>TDV-LeWM analysis.</strong>
-        I compared TDV-LeWM to LeWM with MPC using CEM, iCEM, and Adam,
-        and a planning analysis of whether latent costs rank physically better action sequences.
+        <strong>TDV-LeWM MPC Analysis.</strong>
+        TDV-LeWM outperforms LeWM on every MPC planner (CEM, iCEM, and Adam); the gap is largest under CEM: both-object success 68.5% vs 66.4% / 63.6% for \(\mathrm{LeWM_{REP}}\) / \(\mathrm{LeWM_{PUB}}\), and <strong>56.1% vs 50.8% / 48.4% with noops removed</strong>. TDV's benefit decreases with stronger planners such as iCEM. 
       </li>
       <li>
-        <strong>Latent straightening.</strong>
-        TDV can induce implicit temporal straightening of \(z_t\) by aligning successive motion vectors, but it does not mathematically enforce it
-        (<a href="https://arxiv.org/abs/2603.12231">Wang et al.</a>).
+        <strong>TDV-LeWM Planning Analysis.</strong>
+        This analysis measured whether latent costs rank physically better action sequences. TDV-LeWM gives the best ranking of cube outcomes and the combined cube–gripper objective, with pooled Spearman correlations of \(\rho_{\mathrm{cube}} = 0.608\) and \(\rho_{\mathrm{cg}} = 0.657\), and positive \(\rho_{\mathrm{cg}}\) on 94% of scenarios. Across all models, gripper outcomes are ranked more faithfully than cube outcomes.
+   
+ 
+      <li>
+        <strong>Latent Straightening.</strong> Motivated by recent work on temporal straightening for planning in JEPA world models (<a href="https://arxiv.org/abs/2603.12231" target="_blank">Wang et al.</a>), I analyzed whether TDV induces implicit temporal straightening of \(z_t\). TDV explicitly parameterizes the one-step latent displacement as \(z_{t+1}\approx z_t+\Delta z_t\), with the motion encoder directly learning the latent “velocity” \(z_{t+1}-z_t\). However, I find that TDV does not increase the paper’s straightness metric, \(C_t=\cos(z_{t+1}-z_t,\;z_{t+2}-z_{t+1})\), and therefore does not appear to reduce latent trajectory curvature.
+  
       </li>
     </ul>
 
@@ -398,7 +406,7 @@
       Empirically the bias does <em>not</em> straighten the latent: TDV-LeWM is slightly less straight than both LeWM variants.
     </p>
     <div class="eq">
-      $$z_{t+1}\approx z_t+\Delta z_t,\qquad \Delta z_t=m(\Delta x_t, H_t),\qquad v_t\approx\Delta z_t$$
+      $$z_{t+1}\approx z_t+\Delta z_t,\qquad \Delta z_t=m_\phi(\Delta x_t, H_t),\qquad v_t\approx\Delta z_t$$
       $$\cos(v_t, v_{t+1})\approx\cos(\Delta z_t, \Delta z_{t+1})$$
     </div>
     <p>
@@ -450,7 +458,7 @@
 
     </section>
 
-    <section id="visreg">
+    <!-- <section id="visreg">
     <h2>Supplementary: VISReg</h2>
     <p>
       I also tried replacing SIGReg with
@@ -486,7 +494,7 @@
       gap is larger after removing noops.
     </p>
 
-    </section>
+    </section> -->
 
     <section id="references">
     <h2>References</h2>
