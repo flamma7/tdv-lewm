@@ -10,6 +10,11 @@ multirun/
 /tmp_results/
 /results/
 /data/
+videos.cem/
+videos.icem/
+data-best
+analysis/images/
 *.npz
 *.png
+!docs/assets/*.png
 __pycache__/

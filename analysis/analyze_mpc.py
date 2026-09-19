@@ -201,7 +201,12 @@ def print_file_charts(data, exclude_noop):
         print(f'arm displacement mean:  {arm_d.mean():.6f}')
         print(f'arm displacement std:   {arm_d.std():.6f}')
 
+    n_cube_noop = int(cube_noop.sum())
     print()
+    print(
+        f'cube no-op:              {rate(cube_noop):5.1f}% '
+        f'({n_cube_noop}/{data["n"]})'
+    )
     print(f'cube anytime success:    {rate(data["cube_success"]):5.1f}%')
     print(
         f'cube anytime success (excluding no-op): '
@@ -417,6 +422,12 @@ def print_noop_table(dataset, seed, method):
     for name, mask in groups:
         ids = scenario[mask]
         print(f'  {name:<{label_w}}  ({len(ids):>3}):  {_fmt_ids(ids)}')
+
+    n_cube_noop = int(ref['cube_noop'].sum())
+    print(
+        f'cube no-op: {rate(ref["cube_noop"]):5.1f}% '
+        f'({n_cube_noop}/{ref["n"]})'
+    )
 
     both_mask = ref['both_noop']
     n_both = int(both_mask.sum())

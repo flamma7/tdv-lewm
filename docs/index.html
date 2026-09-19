@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TDV-LeWM: Temporal-Difference Supervision for Latent World-Model Planning</title>
+  <meta name="description" content="Applying TDV-style motion learning to LeWM on OGBench-Cube.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\\(', right: '\\)', display: false}]});"></script>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>TDV-LeWM: Temporal-Difference Supervision for Latent World-Model Planning</h1>
+      <h2 class="subtitle">Applying TDV-style motion learning to LeWM on OGBench-Cube</h2>
+      <p class="links">
+        <a href="https://github.com/flamma7/tdv-lewm">Code</a>
+        &nbsp;|&nbsp;
+        <a href="https://huggingface.co/flamma77/lewm-base">Model weights</a>
+      </p>
+    </header>
+
+    <figure class="hero-figure">
+    <div class="hero">
+      <div class="hero-videos">
+        <div class="hero-item">
+          <p class="hero-title"><span class="label">a)</span> TDV-LeWM CEM Goal Completion Compared to LeWM</p>
+          <div class="panel">
+            <video src="assets/combined_9.mp4" autoplay muted loop playsinline controls></video>
+          </div>
+        </div>
+        <div class="hero-item">
+          <p class="hero-title"><span class="label">b)</span> No Operation (no-op) Example</p>
+          <div class="panel">
+            <video src="assets/noop_34.mp4" autoplay muted loop playsinline controls></video>
+          </div>
+        </div>
+      </div>
+      <div class="hero-item">
+        <p class="hero-title"><span class="label">c)</span> MPC CEM Success Rates and No-op Effects</p>
+        <div class="panel">
+          <img src="assets/mpc_cem_success.png" alt="CEM planning success for TDV-LeWM, LeWM published, and LeWM reproduced, with and without no-ops.">
+        </div>
+      </div>
+    </div>
+    <figcaption>
+      <strong>a)</strong> TDV-LeWM and the released LeWM checkpoint attempting to optimize the latent goal state.
+      <strong>b)</strong> No-operation (no-op) trial where the agent succeeds without necessitating any action (zero displacement of cube from goal state), inflating OGBenchCube success metrics.
+      <strong>c)</strong> CEM planning success rates and no-op effects for the cube, gripper and both objects across 3 seeds (15k runs) for TDV-LeWM, LeWM’s released checkpoint
+      (\(\mathrm{LeWM_{PUB}}\)) and my reproduction of LeWM (\(\mathrm{LeWM_{REP}}\)).
+    </figcaption>
+    </figure>
+
+    <p>
+      I was inspired by the
+      <a href="https://arxiv.org/abs/2606.15956">TDV</a>
+      paper’s simple motion objective — current embedding plus encoded pixel difference should recover the next embedding —
+      to ask whether that bias would help planning in a latent world model.
+      Adding TDV supervision to
+      <a href="https://arxiv.org/abs/2603.19312">LeWM</a>
+      improves CEM, iCEM, and Adam planning on OGBench-Cube, with a larger gap once evaluation noops are removed.
+      I kept LeWM’s SIGReg collapse regularizer instead of TDV’s DINO-style knowledge distillation, trained on
+      RunPod Community Cloud with a controller that retries flaky GPUs, and found that the same pixel-difference
+      bias does <em>not</em> further straighten the latent trajectory.
+      In the sampling used for OGBench-Cube, including in
+      <a href="https://github.com/galilai-group/stable-worldmodel">stable-worldmodel</a>,
+      about 39% of scenarios are cube noops: the cube already starts within the goal threshold.
+      Success rates drop for every world model after removing noop scenarios, particularly for optimizing the cube’s goal displacement.
+      This highlights a significant amount of LeWM’s reported success on OGBenchCube is due to a measurement bias in the form of noop scenarios.
+      TDV-LeWM’s success rate gap compared to LeWM widens after removing noops.
+      All models prioritize the gripper over the cube when optimizing toward the goal latent.
+      This is consistent with the gripper occupying more pixels and therefore more of the latent manifold that MPC optimizes.
+    </p>
+
+    <section id="approach">
+    <h2>Approach</h2>
+    <figure class="approach-figure">
+      <img src="assets/overview.jpg" alt="TDV-LeWM architecture: image encoder, motion encoder on pixel differences with cross-attention to H_t, predictor, SIGReg, and TDV losses.">
+      <figcaption>
+        TDV-LeWM training. The image encoder produces \(z_t\) and features \(H_t\). The motion encoder maps
+        \(\Delta x_t\) with cross-attention to \(H_t\), and the residual \(\Delta z_t\) is trained so that
+        \(z_t + \Delta z_t \approx z_{t+1}\). The action-conditioned predictor and SIGReg are unchanged from LeWM.
+        Only the encoder and predictor are kept at planning time (motion encoder is discarded).
+      </figcaption>
+    </figure>
+
+    <div class="eq">
+      $$(z_t, H_t) = \mathrm{Enc}(x_t), \qquad \hat{z}_{t+1} = \mathrm{Pred}(x_t, a_t)$$
+      $$\Delta z_t = m(\Delta x_t, H_t), \qquad \mathcal{L}_{\mathrm{TDV}} = \lVert z_t + \Delta z_t - z_{t+1} \rVert^2$$
+      $$\mathcal{L} = \mathcal{L}_{\mathrm{pred}} + \lambda\,\mathcal{L}_{\mathrm{SIGReg}} + \alpha\,\mathcal{L}_{\mathrm{TDV}}$$
+    </div>
+
+    <ul>
+      <li>
+        <strong>Summary.</strong>
+        I took LeWM’s architecture and applied a TDV-inspired loss to bias the latent space toward motion and pixel differences.
+        This was motivated by TDV’s gains over other SSL methods in visually dense environments, which I hypothesized could aid LeWM’s performance in the visually complex task of OGBenchCube.
+        In the process I discovered a large confound of no-op scenarios in the evaluation set that was inflating LeWM and likely many other world models’ performances.
+        TDV-LeWM outperforms LeWM on optimizing the position of the cube, gripper and both objects, and its lead extends when removing no-op scenarios, supporting the hypothesis that biasing the latent space toward motion and pixel differences helps planning in visually dense environments.
+      </li>
+      <li>
+        <strong>Collapse prevention.</strong>
+        I kept LeWM’s SIGReg term and did not retrain TDV’s DINO-style teacher network with a stop-gradient.
+      </li>
+      <li>
+        <strong>Motion encoder.</strong>
+        \(\Delta x_t = x_{t+1} - x_t\) is patchified and fed to a ViT-T/14 motion encoder that cross-attends to the
+        image encoder’s feature map \(H_t\). TDV found that contextualizing pixel differences with the current latent
+        was important.
+      </li>
+      <li>
+        <strong>Data.</strong>
+        OGBench-Cube (single cube) through
+        <a href="https://github.com/galilai-group/stable-worldmodel">stable-worldmodel</a>
+        (<a href="https://huggingface.co/datasets/galilai-group/ogb_cube_single">galilai-group/ogb_cube_single</a>).
+      </li>
+      <li>
+        <strong>No-op analysis.</strong>
+        A no-op is a scenario whose start displacement is already below the 0.04 success threshold.
+        In the OGBench-Cube sampling used by stable-worldmodel, about 38% of eval scenarios are cube no-ops
+        (the cube is the object typically used for success by the library),
+        ~9% are gripper no-ops, and ~4% are both (union ~43%).
+        These cases inflate reported success, especially cube and both-object metrics.
+      </li>
+      <li>
+        <strong>Training.</strong>
+        ViT-T/14 encoder, 10 epochs, batch size 128, learning rate \(5\times 10^{-5}\), on RTX 5090s via RunPod.
+        Best TDV-LeWM run: \(\alpha=1.0\), \(\lambda=0.25\)
+        (<code>tdv_a1.0_lam0.25_lr5e-5</code>).
+        \(\mathrm{LeWM_{REP}}\) uses \(\lambda=0.1\)
+        (<code>lewm_lam0.1_lr5e-5</code>).
+      </li>
+      <li>
+        <strong>TDV-LeWM analysis.</strong>
+        I compared TDV-LeWM to LeWM with MPC using CEM, iCEM, and Adam,
+        and a planning analysis of whether latent costs rank physically better action sequences.
+      </li>
+      <li>
+        <strong>Latent straightening.</strong>
+        TDV can induce implicit temporal straightening of \(z_t\) by aligning successive motion vectors, but it does not mathematically enforce it
+        (<a href="https://arxiv.org/abs/2603.12231">Wang et al.</a>).
+      </li>
+    </ul>
+
+    </section>
+
+    <section id="training">
+    <h2>Training dynamics</h2>
+    <p>
+      Loss curves for the terms in \(\mathcal{L}\). Blue is TDV-LeWM; orange is \(\mathrm{LeWM_{REP}}\).
+      \(\mathcal{L}_{\mathrm{TDV}}\) falls for the TDV model and stays high for the reproduction, which does not
+      train that term. TDV-LeWM needed a larger SIGReg weight (\(\lambda=0.25\) vs \(0.1\)) to offset the extra
+      predictive bias. Other SIGReg hyperparameters were left at the library defaults (1024 projections, 17 knots).
+    </p>
+    <div class="legend">
+      <span><span class="swatch tdv"></span>TDV-LeWM</span>
+      <span><span class="swatch rep"></span>LeWM<sub>REP</sub></span>
+    </div>
+    <div class="fig-grid fig-grid-2">
+      <figure>
+        <img src="assets/fit_pred.png" alt="Prediction loss over training for TDV-LeWM and LeWM reproduction." loading="lazy">
+        <figcaption>(a) \(\mathcal{L}_{\mathrm{pred}}\)</figcaption>
+      </figure>
+      <figure>
+        <img src="assets/fit_sigreg.png" alt="SIGReg loss over training for TDV-LeWM and LeWM reproduction." loading="lazy">
+        <figcaption>(b) \(\mathcal{L}_{\mathrm{SIGReg}}\)</figcaption>
+      </figure>
+      <figure>
+        <img src="assets/fit_tdv.png" alt="TDV residual loss over training for TDV-LeWM and LeWM reproduction." loading="lazy">
+        <figcaption>(c) \(\mathcal{L}_{\mathrm{TDV}}\)</figcaption>
+      </figure>
+      <figure>
+        <img src="assets/fit.png" alt="Total training loss for TDV-LeWM and LeWM reproduction." loading="lazy">
+        <figcaption>(d) Total loss</figcaption>
+      </figure>
+    </div>
+
+    <p>
+      Collapse diagnostics on post-projection embeddings, with frozen \(\mathrm{LeWM_{PUB}}\) as a reference.
+      The short transient in (b) and (c) for the frozen published model is the temporal averaging buffer filling up.
+      \(\mathrm{LeWM_{PUB}}\) keeps a slightly higher Roy–Vetterli effective rank than both models I trained.
+    </p>
+    <div class="legend">
+      <span><span class="swatch tdv"></span>TDV-LeWM</span>
+      <span><span class="swatch rep"></span>LeWM<sub>REP</sub></span>
+      <span><span class="swatch pub"></span>LeWM<sub>PUB</sub> (frozen)</span>
+    </div>
+    <div class="fig-grid fig-grid-3">
+      <figure>
+        <img src="assets/collapse_meanvar.png" alt="Mean per-coordinate variance over training." loading="lazy">
+        <figcaption>(a) Mean per-coordinate variance</figcaption>
+      </figure>
+      <figure>
+        <img src="assets/collapse_meanrms.png" alt="RMS of the embedding mean over training." loading="lazy">
+        <figcaption>(b) RMS of the embedding mean</figcaption>
+      </figure>
+      <figure>
+        <img src="assets/collapse_effective_rank_frac.png" alt="Roy-Vetterli effective rank as a fraction of D." loading="lazy">
+        <figcaption>(c) Roy–Vetterli effective rank of the sample covariance, as a fraction of \(D\)</figcaption>
+      </figure>
+    </div>
+
+    </section>
+
+    <section id="infrastructure">
+    <h2>Infrastructure</h2>
+    <p>
+      I used RunPod Community Cloud for training and evaluation sweeps. The controller had to deal with
+      unreliable NVIDIA drivers (start the container, detect a bad machine, shut down, and redeploy),
+      frequent checkpoints because jobs can die mid-run, and a single job-config YAML that specifies
+      hardware, hyperparameters, evaluation type, and seeds.
+    </p>
+    <figure>
+      <img src="assets/infrastructure.jpg" alt="RunPod training infrastructure: local jobs.yaml and controller.py deploy GPU containers, which log to Weights and Biases and push checkpoints to Hugging Face." loading="lazy">
+      <figcaption>
+        One <code>jobs.yaml</code> drives training and eval containers on RunPod. Artifacts go to
+        <a href="https://huggingface.co/flamma77/lewm-base">Hugging Face</a>;
+        metrics go to Weights &amp; Biases. Failed driver detections recycle the pod onto another machine.
+      </figcaption>
+    </figure>
+
+    </section>
+
+    <section id="noops">
+    <h2>OGBench-Cube no-ops</h2>
+    <p>
+      A noop is a scenario whose start displacement is already below the 0.04 success threshold.
+      <strong>Both</strong> is the intersection: cube and gripper already at the goal.
+      Counts below are from the TDV-LeWM CEM eval, 5000 scenarios per seed.
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Seed</th>
+            <th>Cube</th>
+            <th>Gripper</th>
+            <th>Both</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>7</td><td>1850/5000 (37.0%)</td><td>447/5000 (8.9%)</td><td>190/5000 (3.8%)</td></tr>
+          <tr><td>42</td><td>1957/5000 (39.1%)</td><td>465/5000 (9.3%)</td><td>221/5000 (4.4%)</td></tr>
+          <tr><td>101</td><td>1899/5000 (38.0%)</td><td>456/5000 (9.1%)</td><td>214/5000 (4.3%)</td></tr>
+          <tr><td>Pooled</td><td>5706/15000 (38.0%)</td><td>1368/15000 (9.1%)</td><td>625/15000 (4.2%)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      Cube noops are ~38% of the eval set and dominate the inflation of cube/both success. Gripper noops are ~9%.
+      The joint both-noop cell is only ~4%, so most cube noops still require the gripper to move.
+      The union (cube or gripper already at goal) is 6449/15000 (43.0%).
+      I include the gripper because LeWM encodes the whole scene into one latent.
+      As the next section shows, LeWM-based models typically reduce gripper displacement before cube displacement.
+    </p>
+
+    </section>
+
+    <section id="planning">
+    <h2>MPC and planning</h2>
+    <p>
+      Anytime success for \(\mathrm{LeWM_{REP}}\) (<code>lewm_lam0.1_lr5e-5</code>),
+      \(\mathrm{LeWM_{PUB}}\) (<code>quentinll/lewm-cube</code>), and TDV-LeWM
+      (<code>tdv_a1.0_lam0.25_lr5e-5</code>).
+      Ex-noop drops any scenario whose cube or gripper start displacement is already \(\lt 0.04\).
+      CEM is 5000 scenarios/seed (15k pooled); Adam and iCEM are 2000/seed (6k pooled).
+      Pooled rates weight by \(n\) / \(n\) ex-noop.
+    </p>
+    <p class="note">Pooled across seeds 7, 42, and 101.</p>
+    <div class="table-wrap">
+      <table class="mpc">
+        <thead>
+          <tr>
+            <th>Planner</th>
+            <th>Model</th>
+            <th>n</th>
+            <th>n ex-noop</th>
+            <th>Cube</th>
+            <th>Cube ex-noop</th>
+            <th>Grip</th>
+            <th>Grip ex-noop</th>
+            <th>Both</th>
+            <th>Both ex-noop</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>CEM</td><td>LeWM<sub>REP</sub></td><td>15000</td><td>8551</td><td>69.2%</td><td>51.0%</td><td>86.9%</td><td>81.8%</td><td>66.4%</td><td>50.8%</td></tr>
+          <tr><td>CEM</td><td>LeWM<sub>PUB</sub></td><td>15000</td><td>8551</td><td>68.0%</td><td>49.1%</td><td>84.2%</td><td>79.3%</td><td>63.6%</td><td>48.4%</td></tr>
+          <tr><td>CEM</td><td>TDV-LeWM</td><td>15000</td><td>8551</td><td>72.2%</td><td>56.3%</td><td>88.3%</td><td>85.8%</td><td>68.5%</td><td>56.1%</td></tr>
+          <tr><td>iCEM</td><td>LeWM<sub>REP</sub></td><td>6000</td><td>3343</td><td>69.8%</td><td>51.9%</td><td>83.1%</td><td>76.7%</td><td>65.7%</td><td>51.6%</td></tr>
+          <tr><td>iCEM</td><td>LeWM<sub>PUB</sub></td><td>6000</td><td>3343</td><td>71.7%</td><td>54.1%</td><td>78.5%</td><td>74.5%</td><td>63.9%</td><td>53.2%</td></tr>
+          <tr><td>iCEM</td><td>TDV-LeWM</td><td>6000</td><td>3343</td><td>73.7%</td><td>57.6%</td><td>83.2%</td><td>80.4%</td><td>67.2%</td><td>56.6%</td></tr>
+          <tr><td>Adam</td><td>LeWM<sub>REP</sub></td><td>6000</td><td>3343</td><td>68.7%</td><td>48.6%</td><td>79.2%</td><td>70.6%</td><td>64.0%</td><td>48.2%</td></tr>
+          <tr><td>Adam</td><td>LeWM<sub>PUB</sub></td><td>6000</td><td>3343</td><td>69.1%</td><td>49.3%</td><td>77.1%</td><td>67.8%</td><td>63.6%</td><td>48.1%</td></tr>
+          <tr><td>Adam</td><td>TDV-LeWM</td><td>6000</td><td>3343</td><td>70.5%</td><td>51.8%</td><td>81.7%</td><td>76.1%</td><td>65.1%</td><td>51.0%</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <figure class="chart">
+      <div class="bar-row">
+        <span>TDV-LeWM</span>
+        <div class="track"><div class="fill" style="width: 56.1%"></div></div>
+        <span>56.1%</span>
+      </div>
+      <div class="bar-row">
+        <span>LeWM<sub>REP</sub></span>
+        <div class="track"><div class="fill" style="width: 50.8%"></div></div>
+        <span>50.8%</span>
+      </div>
+      <div class="bar-row">
+        <span>LeWM<sub>PUB</sub></span>
+        <div class="track"><div class="fill" style="width: 48.4%"></div></div>
+        <span>48.4%</span>
+      </div>
+      <figcaption>CEM both-object success with noops removed, pooled over 15k runs.</figcaption>
+    </figure>
+
+    <p>
+      TDV-LeWM is best on every planner and every metric. The gap widens after removing noops, especially for
+      cube/both (CEM both: +2.1 / +4.9 vs \(\mathrm{LeWM_{REP}}\) all / ex-noop).
+      All three models score the gripper much higher than the cube.
+      CEM is the strongest planner for gripper success; iCEM is slightly stronger than CEM on cube/both for TDV.
+    </p>
+
+    <h3>Does the latent cost rank real plans?</h3>
+    <p>
+      Higher positive Spearman \(\rho\) means the model assigns lower latent cost to action sequences that actually
+      produce better physical outcomes, which is what MPC needs.
+    </p>
+    <div class="eq">
+      $$\rho(C_{\mathrm{latent}}, C_{\mathrm{cube}}),\quad
+      \rho(C_{\mathrm{latent}}, C_{\mathrm{gripper}}),\quad
+      \rho(C_{\mathrm{latent}}, C_{\mathrm{cg}})$$
+      $$C_{\mathrm{cg}} = C_{\mathrm{cube}}/s_{\mathrm{cube}} + C_{\mathrm{gripper}}/s_{\mathrm{gripper}}$$
+    </div>
+    <p>
+      Pooled over 3 seeds, 600 scenarios \(\times\) 64 candidates. mean\(\pm\)std is per-scenario \(\rho\);
+      parentheses are pooled \(\rho\).
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Model</th>
+            <th>\(\rho_{\mathrm{cube}}\)</th>
+            <th>\(\rho_{\mathrm{grip}}\)</th>
+            <th>\(\rho_{\mathrm{cg}}\)</th>
+            <th>%\(\rho&gt;0\) cg</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>LeWM<sub>REP</sub></td>
+            <td>+0.135±0.212 (+0.563)</td>
+            <td>+0.444±0.296 (+0.514)</td>
+            <td>+0.417±0.277 (+0.632)</td>
+            <td>90%</td>
+          </tr>
+          <tr>
+            <td>LeWM<sub>PUB</sub></td>
+            <td>+0.136±0.211 (+0.596)</td>
+            <td>+0.396±0.282 (+0.485)</td>
+            <td>+0.386±0.255 (+0.638)</td>
+            <td>92%</td>
+          </tr>
+          <tr>
+            <td>TDV-LeWM</td>
+            <td>+0.165±0.199 (+0.608)</td>
+            <td>+0.431±0.262 (+0.521)</td>
+            <td>+0.426±0.230 (+0.657)</td>
+            <td>94%</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      TDV ranks cube and \(C_{\mathrm{cg}}\) best. All models rank the gripper much more faithfully than the cube.
+    </p>
+
+    </section>
+
+    <section id="straightening">
+    <h2>Latent straightening</h2>
+    <p>
+      <a href="https://arxiv.org/abs/2603.12231">Wang et al.</a>
+      call a latent trajectory locally straight when consecutive velocities
+      \(v_t = z_{t+1}-z_t\) and \(v_{t+1}=z_{t+2}-z_{t+1}\) point in similar directions.
+      TDV does not mathematically enforce that, but it can induce implicit straightening:
+      it parameterizes the one-step displacement so the motion encoder learns exactly this velocity.
+      If TDV prediction is good, the straightening criterion is whether successive motion vectors align.
+      Empirically the bias does <em>not</em> straighten the latent: TDV-LeWM is slightly less straight than both LeWM variants.
+    </p>
+    <div class="eq">
+      $$z_{t+1}\approx z_t+\Delta z_t,\qquad \Delta z_t=m(\Delta x_t, H_t),\qquad v_t\approx\Delta z_t$$
+      $$\cos(v_t, v_{t+1})\approx\cos(\Delta z_t, \Delta z_{t+1})$$
+    </div>
+    <p>
+      Distribution of \(\cos(v_t, v_{t+1})\) on 100k transitions (seed 42).
+      TDV puts less mass in \([0.80, 1.00]\) (47.9% vs 54.9% / 52.3%) and more in \([0.60, 0.80)\).
+    </p>
+    <figure>
+      <img src="assets/straightness_hist.png" alt="Grouped histogram of cosine straightness for LeWM reproduction, LeWM published, and TDV-LeWM, with bars side by side in each bin." loading="lazy">
+      <figcaption>
+        \(\cos(v_t, v_{t+1})\) on 100k transitions (seed 42), with \(\mathrm{LeWM_{REP}}\), \(\mathrm{LeWM_{PUB}}\), and TDV-LeWM side by side in each bin.
+      </figcaption>
+    </figure>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Model</th>
+            <th>Mean</th>
+            <th>Std</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>LeWM<sub>REP</sub></td><td><strong>+0.674</strong></td><td>0.382</td></tr>
+          <tr><td>LeWM<sub>PUB</sub></td><td>+0.669</td><td>0.381</td></tr>
+          <tr><td>TDV-LeWM</td><td>+0.661</td><td>0.358</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    </section>
+
+    <section id="future">
+    <h2>Future work</h2>
+    <ol>
+      <li>
+        TDV’s pixel-difference bias may help more in environments where actions do not fully explain visual
+        transitions, such as Atari.
+      </li>
+      <li>
+        stable-worldmodel includes appearance-robustness evaluation tools.
+        Biasing the latent toward motion may help under color shifts, because the motion encoder sees
+        \(\Delta x_t\) rather than absolute appearance.
+      </li>
+      <li>
+        LeWM already performs well on the other main SWM environments (Two-Room, Reacher, and PushT),
+        so there is less room for TDV to move the needle there.
+      </li>
+    </ol>
+
+    </section>
+
+    <section id="visreg">
+    <h2>Supplementary: VISReg</h2>
+    <p>
+      I also tried replacing SIGReg with
+      <a href="https://arxiv.org/abs/2606.02572">VISReg</a>
+      (variance, Gaussian-sketch shape, and centering) as the collapse regularizer, with no motion encoder.
+      Across the \(\alpha\) / scale / shape / center sweep, VISReg-trained LeWMs planned worse than both
+      SIGReg LeWM and TDV-LeWM, so I kept SIGReg.
+    </p>
+    <p class="note">
+      iCEM, seed 7, 2000 scenarios. TDV-LeWM both success is 66.3% (56.0% ex-noop) on the same split;
+      \(\mathrm{LeWM_{REP}}\) is 65.0% (51.4%).
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>VISReg run</th>
+            <th>Cube</th>
+            <th>Grip</th>
+            <th>Both</th>
+            <th>Both ex-noop</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><code>a0.3</code> default</td><td>60.0%</td><td>81.5%</td><td>55.5%</td><td>38.0%</td></tr>
+          <tr><td><code>a4.0</code> (best both)</td><td>63.5%</td><td>81.3%</td><td>60.3%</td><td>43.3%</td></tr>
+          <tr><td><code>a6.0</code> (best cube ex-noop)</td><td>65.7%</td><td>76.2%</td><td>59.9%</td><td>45.0%</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      Even the best VISReg checkpoint is several points behind SIGReg LeWM on both-object success, and the
+      gap is larger after removing noops.
+    </p>
+
+    </section>
+
+    <section id="references">
+    <h2>References</h2>
+    <ol>
+      <li>
+        Ninad Daithankar, Alexi Gladstone, Yann LeCun, and Heng Ji.
+        <em>You Don’t Need Strong Assumptions: Visual Representation Learning via Temporal Differences</em>.
+        arXiv, 2026.
+        <a href="https://arxiv.org/abs/2606.15956">arXiv:2606.15956</a>
+      </li>
+      <li>
+        Lucas Maes, Quentin Le Lidec, Damien Scieur, Yann LeCun, and Randall Balestriero.
+        <em>LeWorldModel: Stable End-to-End Joint-Embedding Predictive Architecture from Pixels</em>.
+        arXiv, 2026.
+        <a href="https://arxiv.org/abs/2603.19312">arXiv:2603.19312</a>
+      </li>
+      <li>
+        Randall Balestriero and Yann LeCun.
+        <em>LeJEPA: Provable and Scalable Self-Supervised Learning Without the Heuristics</em>.
+        arXiv, 2025.
+        <a href="https://arxiv.org/abs/2511.08544">arXiv:2511.08544</a>
+      </li>
+      <li>
+        Seohong Park, Kevin Frans, Benjamin Eysenbach, and Sergey Levine.
+        <em>OGBench: Benchmarking Offline Goal-Conditioned RL</em>.
+        ICLR, 2025.
+        <a href="https://arxiv.org/abs/2410.20092">arXiv:2410.20092</a>
+      </li>
+      <li>
+        Ying Wang, Oumayma Bounou, Gaoyue Zhou, Randall Balestriero, Tim G. J. Rudner, Yann LeCun, and Mengye Ren.
+        <em>Temporal Straightening for Latent Planning</em>.
+        arXiv, 2026.
+        <a href="https://arxiv.org/abs/2603.12231">arXiv:2603.12231</a>
+      </li>
+      <li>
+        Haiyu Wu, Randall Balestriero, and Morgan Levine.
+        <em>VISReg: Variance-Invariance-Sketching Regularization for JEPA training</em>.
+        arXiv, 2026.
+        <a href="https://arxiv.org/abs/2606.02572">arXiv:2606.02572</a>
+      </li>
+    </ol>
+    </section>
+  </div>
+</body>
+</html>

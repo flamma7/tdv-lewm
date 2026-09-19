@@ -318,10 +318,10 @@ def plot_stacked_bars(pooled, output, title=None):
             if excl >= 8:
                 _annotate(ax, x, max(excl * 0.46, 10.0), f'{excl:.1f}', ink)
             if noop >= 4.5:
-                _annotate(ax, x, excl + 0.52 * noop, f'-{noop:.1f}', ink, size=8.2)
+                _annotate(ax, x, excl + 0.52 * noop, f'+{noop:.1f}', ink, size=8.2)
                 _annotate(ax, x, total + 3.2, f'{total:.1f}', ink, size=9.2)
             elif noop >= 1.2:
-                _annotate(ax, x, total + 2.4, f'-{noop:.1f}', ink, size=8.0)
+                _annotate(ax, x, total + 2.4, f'+{noop:.1f}', ink, size=8.0)
                 _annotate(ax, x, total + 6.2, f'{total:.1f}', ink, size=9.2)
             else:
                 _annotate(ax, x, total + 3.2, f'{total:.1f}', ink, size=9.2)
