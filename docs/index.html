@@ -50,7 +50,7 @@
       </div>
     </div>
     <figcaption>
-      <strong>a)</strong> TDV-LeWM and the released LeWM checkpoint attempting to optimize the latent goal state.
+      <strong>a)</strong> TDV-LeWM and the released LeWM checkpoint optimizing the latent goal state.
       <strong>b)</strong> No-operation (no-op) trial where the agent succeeds without necessitating any action (zero displacement of cube from goal state). These are abundant in the evaluation set and inflate success rates on OGBenchCube.
       <strong>c)</strong> CEM planning success rates and no-op effects for the cube, gripper and both objects across 3 seeds (15k runs) for TDV-LeWM, LeWM’s released checkpoint
       (\(\mathrm{LeWM_{PUB}}\)) and my reproduction of LeWM (\(\mathrm{LeWM_{REP}}\)). 
@@ -84,6 +84,16 @@
       In the process I discovered a large confound of no-op scenarios in the evaluation set that was inflating LeWM and likely many other world models’ performances.
       TDV-LeWM outperforms LeWM on optimizing the position of the cube, gripper and both objects, and its lead extends when removing no-op scenarios, supporting the hypothesis that biasing the latent space toward motion and pixel differences helps planning in visually dense environments.
     </p>
+
+    Primary Contributions:
+    <ul>
+      <li>
+        <strong>LeWM is augmented</strong> with a motion encoder and TDV-style loss during training to bias the latent space toward pixel differences. The performance of TDV-LeWM is evaluated via the success rates of various MPC planners (CEM, iCEM, Adam) on OGBench-Cube.
+      </li>
+      <li>
+        <strong>No-op confound analysis:</strong> A brief analysis demonstrates that a substantial fraction of no-operation scenarios in the OGBenchCube evaluation set (<em>e.g.</em>, cases where the cube or gripper is already at the goal) artificially inflates MPC success metrics on the task.
+      </li>
+    </ul>
 
     <section id="overview">
     <h2>Overview</h2>
@@ -236,11 +246,11 @@
     </section>
 
     <section id="noops">
-    <h2>OGBench-Cube no-ops</h2>
+    <h2>OGBenchCube No-Operation Scenarios</h2>
     <p>
-      A noop is a scenario whose start displacement is already below the 0.04 success threshold.
-      <strong>Both</strong> is the intersection: cube and gripper already at the goal.
-      Counts below are from the TDV-LeWM CEM eval, 5000 scenarios per seed.
+      A no-op is defined as a scenario whose start displacement is already below the 4cm success threshold for OGBenchCube in the Mujoco simulator. Thereby these scenarios are trivially successful for any planner. This occurs as a sampling artifact because the evaluation set samples random 25-step sequences from the dataset, and a large percentage of sequences have starting and ending object positions within the 4cm threshold. The table below shows the no-op counts for the cube, gripper, and both objects across 15k randomly sampled scenarios over 3 seeds
+    </p>
+    <p> I include gripper no-ops because LeWM encodes the full scene into a single latent. As the next section shows, LeWM typically prioritizes minimizing gripper latent displacement over the cube's.
     </p>
     <div class="table-wrap">
       <table>
@@ -257,15 +267,13 @@
           <tr><td>42</td><td>1957/5000 (39.1%)</td><td>465/5000 (9.3%)</td><td>221/5000 (4.4%)</td></tr>
           <tr><td>101</td><td>1899/5000 (38.0%)</td><td>456/5000 (9.1%)</td><td>214/5000 (4.3%)</td></tr>
           <tr><td>Pooled</td><td>5706/15000 (38.0%)</td><td>1368/15000 (9.1%)</td><td>625/15000 (4.2%)</td></tr>
+    
         </tbody>
       </table>
     </div>
     <p>
-      Cube noops are ~38% of the eval set and dominate the inflation of cube/both success. Gripper noops are ~9%.
-      The joint both-noop cell is only ~4%, so most cube noops still require the gripper to move.
-      The union (cube or gripper already at goal) is 6449/15000 (43.0%).
-      I include the gripper because LeWM encodes the whole scene into one latent.
-      As the next section shows, LeWM-based models typically reduce gripper displacement before cube displacement.
+      <strong>Cube no-ops make up ~38% of the evaluation set</strong> and account for most of the inflation in cube and both success rates. Gripper no-ops make up ~9%. The joint both-no-op rate is only ~4%, meaning that most cube no-ops still require the gripper to move. The union of scenarios where either the cube or gripper is already at goal is 6449/15000 (43.0%).
+
     </p>
 
     </section>
@@ -395,24 +403,24 @@
     </section>
 
     <section id="straightening">
-    <h2>Latent straightening</h2>
+    <h2>Latent Straightening</h2> 
     <p>
-      <a href="https://arxiv.org/abs/2603.12231">Wang et al.</a>
-      call a latent trajectory locally straight when consecutive velocities
-      \(v_t = z_{t+1}-z_t\) and \(v_{t+1}=z_{t+2}-z_{t+1}\) point in similar directions.
-      TDV does not mathematically enforce that, but it can induce implicit straightening:
-      it parameterizes the one-step displacement so the motion encoder learns exactly this velocity.
-      If TDV prediction is good, the straightening criterion is whether successive motion vectors align.
-      Empirically the bias does <em>not</em> straighten the latent: TDV-LeWM is slightly less straight than both LeWM variants.
+      Motivated by recent work on temporal straightening for planning in JEPA world models (<a href="https://arxiv.org/abs/2603.12231" target="_blank">Wang et al.</a>), I analyzed whether TDV induces implicit temporal straightening of \(z_t\). In the paper, Wang et al. define a latent trajectory as locally straight when consecutive velocities \(v_t = z_{t+1}-z_t\) and \(v_{t+1}=z_{t+2}-z_{t+1}\) point in similar directions as measured by their cosine similarity. 
     </p>
-    <div class="eq">
-      $$z_{t+1}\approx z_t+\Delta z_t,\qquad \Delta z_t=m_\phi(\Delta x_t, H_t),\qquad v_t\approx\Delta z_t$$
-      $$\cos(v_t, v_{t+1})\approx\cos(\Delta z_t, \Delta z_{t+1})$$
+    <div class="eq" style="overflow-x: unset;">
+      $$C_t = \cos(z_{t+1} - z_t,\, z_{t+2} - z_{t+1})$$
     </div>
     <p>
-      Distribution of \(\cos(v_t, v_{t+1})\) on 100k transitions (seed 42).
-      TDV puts less mass in \([0.80, 1.00]\) (47.9% vs 54.9% / 52.3%) and more in \([0.60, 0.80)\).
+      Larger values of \(C_t\) indicate that consecutive latent velocities are more aligned,
+      corresponding to a locally straighter latent trajectory.
     </p>
+      
+      
+    <p>
+      TDV explicitly parameterizes the one-step latent displacement as \(z_{t+1}\approx z_t+\Delta z_t\), with the motion encoder directly learning the latent “velocity” \(z_{t+1}-z_t\). This raisesed the question of whether TDV might implicitly encourage temporal straightening within the latent trajectory.
+ 
+    </p>
+    
     <figure>
       <img src="assets/straightness_hist.png" alt="Grouped histogram of cosine straightness for LeWM reproduction, LeWM published, and TDV-LeWM, with bars side by side in each bin." loading="lazy">
       <figcaption>
@@ -435,6 +443,11 @@
         </tbody>
       </table>
     </div>
+    <p>
+      TDV-LeWM has a slightly lower mean consecutive-velocity cosine similarity
+  (\(0.661\)) than LeWM<sub>REP</sub> (\(0.674\)) and LeWM<sub>PUB</sub> (\(0.669\)).
+  TDV also places fewer transitions in the highest-alignment bin, \([0.80,1.00]\): 47.9% vs. 54.9% and 52.3% for LeWM\(_\mathrm{REP}\) and LeWM\(_\mathrm{PUB}\); however, it has more transitions instead falling into \([0.60,0.80)\). Together with the approximately unchanged mean straightness score, this suggests that the TDV augmentation turns out to not introduce any noticeable effect on straightening the latent space.
+    </p>
 
     </section>
 
