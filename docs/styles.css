@@ -32,11 +32,19 @@ h1 {
 }
 
 .subtitle {
-  margin: 0 0 1.1rem;
+  margin: 0 0 0.55rem;
   font-family: "Google Sans", "Noto Sans", Helvetica, Arial, sans-serif;
   font-size: 1.35rem;
   font-weight: 400;
   color: #4a4a4a;
+}
+
+.authors {
+  margin: 0 0 1.1rem;
+  font-family: "Google Sans", "Noto Sans", Helvetica, Arial, sans-serif;
+  font-size: 1.15rem;
+  font-weight: 400;
+  color: #363636;
 }
 
 .links {
@@ -139,8 +147,8 @@ th:not(:first-child) {
   font-variant-numeric: tabular-nums;
 }
 
-.mpc td:nth-child(2),
-.mpc th:nth-child(2) {
+.mpc thead th:nth-child(2),
+.mpc tbody td:first-of-type {
   text-align: left;
 }
 
@@ -306,6 +314,30 @@ th:not(:first-child) {
   color: #4a4a4a;
 }
 
+.paper-quote {
+  margin: 1rem 0 1.2rem;
+  padding: 0.85rem 1.15rem 0.9rem;
+  border-left: 3px solid #3273dc;
+  background: #f6f7f9;
+  color: #4a4a4a;
+  font-size: 0.95rem;
+  line-height: 1.55;
+}
+
+.paper-quote p {
+  margin: 0;
+}
+
+.paper-quote footer {
+  margin-top: 0.65rem;
+  font-size: 0.82rem;
+  color: #7a7a7a;
+}
+
+.paper-quote cite {
+  font-style: italic;
+}
+
 .infra {
   display: grid;
   grid-template-columns: 1fr 30rem;
@@ -361,4 +393,26 @@ th:not(:first-child) {
   .bar-row {
     grid-template-columns: 1fr;
   }
+}
+
+
+.mpc .planner-start > * {
+  border-top: 2px solid currentColor;
+}
+
+.mpc tbody tr:first-child > * {
+  border-top: none;
+}
+
+.mpc .planner {
+  font-weight: 700;
+  vertical-align: middle;
+}
+
+.mpc td[rowspan] {
+  vertical-align: middle;
+}
+
+.mpc .best-model td:first-child {
+  font-weight: 600;
 }

@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>TDV-LeWM: Temporal-Difference Supervision for Latent World-Model Planning</title>
   <meta name="description" content="Applying TDV-style motion learning to LeWM on OGBench-Cube.">
+  <meta name="author" content="Luke Barbier">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro" rel="stylesheet">
@@ -19,6 +20,7 @@
     <header>
       <h1>TDV-LeWM: Temporal-Difference Supervision for Latent World-Model Planning</h1>
       <h2 class="subtitle">Applying TDV-style motion learning to LeWM on OGBench-Cube</h2>
+      <p class="authors">Luke Barbier</p>
       <p class="links">
         <a href="https://github.com/flamma7/tdv-lewm">Code</a>
         &nbsp;|&nbsp;
@@ -161,7 +163,7 @@
    
  
       <li>
-        <strong>Latent Straightening.</strong> Motivated by recent work on temporal straightening for planning in JEPA world models (<a href="https://arxiv.org/abs/2603.12231" target="_blank">Wang et al.</a>), I analyzed whether TDV induces implicit temporal straightening of \(z_t\). TDV explicitly parameterizes the one-step latent displacement as \(z_{t+1}\approx z_t+\Delta z_t\), with the motion encoder directly learning the latent “velocity” \(z_{t+1}-z_t\). However, I find that TDV does not increase the paper’s straightness metric, \(C_t=\cos(z_{t+1}-z_t,\;z_{t+2}-z_{t+1})\), and therefore does not appear to reduce latent trajectory curvature.
+        <strong>Latent Straightening.</strong> Motivated by recent work on temporal straightening for planning in JEPA world models (<a href="https://arxiv.org/abs/2603.12231" target="_blank">Wang et al.</a>), I analyzed whether TDV induces implicit temporal straightening of \(z_t\). TDV explicitly parameterizes the one-step latent displacement as \(z_{t+1}\approx z_t+\Delta z_t\), with the motion encoder directly learning the latent “velocity” \(z_{t+1}-z_t\). However, I found that TDV does not increase the paper’s straightness metric, \(C_t=\cos(z_{t+1}-z_t,\;z_{t+2}-z_{t+1})\), and therefore does not appear to reduce latent trajectory curvature.
   
       </li>
     </ul>
@@ -170,9 +172,6 @@
 
     <section id="training">
     <h2>Training dynamics</h2>
-    <p>
-      Loss curves for the terms in \(\mathcal{L}\). Blue is TDV-LeWM; orange is \(\mathrm{LeWM_{REP}}\). TDV-LeWM needed a larger SIGReg weight (\(\lambda=0.25\) vs \(0.1\)) to offset the extra predictive bias. Other SIGReg hyperparameters were left at the library defaults (1024 projections, 17 knots). If we set \(\alpha=0\) in TDV-LeWM, then it is equivalent to vanilla LeWM, and we can still measure TDV's loss (before it is zeroed out in the loss by \(\alpha\)) via its motion encoder. This is visualized in c) and labeled as LeWM\(_{REP}\). We see that that as LeWM trains \(z_t\) becomes predictive of \(z_{t+1}\),reducing the TDV loss despite the noise from the untrained motion encoder.
-    </p>
     <div class="legend">
       <span><span class="swatch tdv"></span>TDV-LeWM</span>
       <span><span class="swatch rep"></span>LeWM<sub>REP</sub></span>
@@ -195,12 +194,10 @@
         <img src="assets/fit.png" alt="Total training loss for TDV-LeWM and LeWM reproduction." loading="lazy">
       </figure>
     </div>
-
     <p>
-      Collapse diagnostics on post-projection embeddings, with frozen \(\mathrm{LeWM_{PUB}}\) as a reference.
-      The short transient in (b) and (c) for the frozen published model is the temporal averaging buffer filling up.
-      \(\mathrm{LeWM_{PUB}}\) keeps a slightly higher Roy–Vetterli effective rank than both models I trained.
+      Loss curves for the terms in \(\mathcal{L}\). Blue is TDV-LeWM; orange is \(\mathrm{LeWM_{REP}}\). TDV-LeWM needed a larger SIGReg weight (\(\lambda=0.25\) vs \(0.1\)) to offset the extra predictive bias. Other SIGReg hyperparameters were left at the library defaults (1024 projections, 17 knots). If we set \(\alpha=0\) in TDV-LeWM, then it is equivalent to vanilla LeWM, and we can still measure TDV's loss (before it is zeroed out in the loss by \(\alpha\)) via its motion encoder. This is visualized in c) and labeled as LeWM\(_{REP}\). We see that that as LeWM trains \(z_t\) becomes predictive of \(z_{t+1}\),reducing the TDV loss despite the noise from the untrained motion encoder.
     </p>
+
     <div class="legend">
       <span><span class="swatch tdv"></span>TDV-LeWM</span>
       <span><span class="swatch rep"></span>LeWM<sub>REP</sub></span>
@@ -220,6 +217,11 @@
       <p class="fig-title">(c) Roy–Vetterli effective rank (fraction of \(D\))</p>
       <img src="assets/collapse_effective_rank_frac.png" alt="Roy-Vetterli effective rank as a fraction of D." loading="lazy">
     </figure>
+    <p>
+      Collapse diagnostics on post-projection embeddings, with frozen \(\mathrm{LeWM_{PUB}}\) as a reference.
+      The short transient in (b) and (c) for the frozen published model is the temporal averaging buffer filling up.
+      \(\mathrm{LeWM_{PUB}}\) keeps a slightly higher Roy–Vetterli effective rank than both models I trained.
+    </p>
 
     </section>
 
@@ -244,7 +246,7 @@
     <section id="noops">
     <h2>OGBenchCube No-Operation Scenarios</h2>
     <p>
-      A no-op is defined as a scenario whose start displacement is already below the 4cm success threshold for OGBenchCube in the Mujoco simulator. Thereby these scenarios are trivially successful for any planner. This occurs as a sampling artifact because the evaluation set samples random 25-step sequences from the dataset, and a large percentage of sequences have starting and ending object positions within the 4cm threshold. The table below shows the no-op counts for the cube, gripper, and both objects across 15k randomly sampled scenarios over 3 seeds
+      A no-op is defined as a scenario whose start displacement is already below the 4cm success threshold for OGBenchCube in the Mujoco simulator. Thereby, these scenarios are trivially successful for any planner. This occurs as a sampling artifact because the evaluation set samples random 25-step sequences from the dataset, and a large percentage of sequences have starting and ending object positions within the 4cm threshold. The table below shows the no-op counts for the cube, gripper, and both objects across 15k randomly sampled scenarios over 3 seeds
     </p>
     <p> I include gripper no-ops because LeWM encodes the full scene into a single latent. As the next section shows, LeWM typically prioritizes minimizing gripper latent displacement over the cube's.
     </p>
@@ -269,30 +271,58 @@
     </div>
     <p>
       <strong>Cube no-ops make up ~38% of the evaluation set</strong> and account for most of the inflation in cube and both success rates. Gripper no-ops make up ~9%. The joint both-no-op rate is only ~4%, meaning that most cube no-ops still require the gripper to move. The union of scenarios where either the cube or gripper is already at goal is 6449/15000 (43.0%).
-
+    </p>
+    <h3>OGBenchCube Retaining Discriminative Power Discussion</h3>
+    <p>
+      In a recent work,
+      <a href="https://arxiv.org/abs/2608.22764">LpWM</a>
+      (Kuang et al., 2026), the authors write in the appendix under
+      “Planning and Evaluation” (p.&nbsp;15):
+    </p>
+    <blockquote class="paper-quote" cite="https://arxiv.org/abs/2608.22764">
+      <p>
+        For OGBench-Cube, we follow the evaluation protocol of Maes et al. [2026b],
+        where goal observations are sampled only 25 raw environment steps ahead.
+        This short horizon can make <strong>the planning task relatively easy</strong>, potentially
+        leading to performance saturation and <strong>limiting the discriminative power of
+        the benchmark</strong>. We leave evaluation under more challenging longer-horizon
+        and larger-frameskip settings to future work.
+      </p>
+      <footer>
+        Kuang et al.,
+        <cite>LpWM: A Case for Sparse Representations in World Models</cite>,
+        arXiv:2608.22764, Appendix, p.&nbsp;15.
+      </footer>
+    </blockquote>
+    <p>
+      I argue that the apparent saturation of OGBenchCube and the planning task appearing
+      “easy” is not simply a consequence of short-horizon planning; the standard
+      evaluation is heavily biased toward trivially successful configurations:
+      38% of episodes begin with the cube already inside the success threshold.
+      Once these initially satisfied cases are removed, the apparent saturation,
+      documented at 65–70% in Figure 4a of the LpWM paper, largely disappears and
+      the benchmark retains discriminative power. More fundamentally, it is
+      difficult to reconcile characterizing the planning problem as “easy” with
+      reported success rates below 70% (in the paper and across many other works), particularly when a substantial fraction
+      of the evaluation set is already successful at initialization.
     </p>
 
     </section>
 
     <section id="planning">
-    <h2>MPC and planning</h2>
+    <h2>Evaluation: MPC Success Rates</h2>
     <p>
-      Anytime success for \(\mathrm{LeWM_{REP}}\) (<code>lewm_lam0.1_lr5e-5</code>),
-      \(\mathrm{LeWM_{PUB}}\) (<code>quentinll/lewm-cube</code>), and TDV-LeWM
-      (<code>tdv_a1.0_lam0.25_lr5e-5</code>).
-      Ex-noop drops any scenario whose cube or gripper start displacement is already \(\lt 0.04\).
-      CEM is 5000 scenarios/seed (15k pooled); Adam and iCEM are 2000/seed (6k pooled).
-      Pooled rates weight by \(n\) / \(n\) ex-noop.
+      Evaluation was done using the standard method for SWM on the OGBenchCube task and the method used in the LeWM paper, which is anytime displacement of the cube below 4cm from its goal position. Because the latent represents the state of the entire image, I introduce two other metrics: the gripper's goal displacement, and both, meaning the cube and gripper each reach their goal (the intersection of the two success events). For the gripper I use the same anytime goal displacement threshold of 4cm.
     </p>
-    <p class="note">Pooled across seeds 7, 42, and 101.</p>
+    <p>
+      As discussed in the <a href="#noops">No-Op Evaluation</a> section, the sampling distribution of OGBenchCube includes a plethora of no-op scenarios for the cube and gripper. The following table shows the MPC success rates across various planners, including conditioning on removal of no-op scenarios.
+    </p>
     <div class="table-wrap">
       <table class="mpc">
         <thead>
           <tr>
             <th>Planner</th>
             <th>Model</th>
-            <th>n</th>
-            <th>n ex-noop</th>
             <th>Cube</th>
             <th>Cube ex-noop</th>
             <th>Grip</th>
@@ -301,47 +331,112 @@
             <th>Both ex-noop</th>
           </tr>
         </thead>
+    
         <tbody>
-          <tr><td>CEM</td><td>LeWM<sub>REP</sub></td><td>15000</td><td>8551</td><td>69.2%</td><td>51.0%</td><td>86.9%</td><td>81.8%</td><td>66.4%</td><td>50.8%</td></tr>
-          <tr><td>CEM</td><td>LeWM<sub>PUB</sub></td><td>15000</td><td>8551</td><td>68.0%</td><td>49.1%</td><td>84.2%</td><td>79.3%</td><td>63.6%</td><td>48.4%</td></tr>
-          <tr><td>CEM</td><td>TDV-LeWM</td><td>15000</td><td>8551</td><td>72.2%</td><td>56.3%</td><td>88.3%</td><td>85.8%</td><td>68.5%</td><td>56.1%</td></tr>
-          <tr><td>iCEM</td><td>LeWM<sub>REP</sub></td><td>6000</td><td>3343</td><td>69.8%</td><td>51.9%</td><td>83.1%</td><td>76.7%</td><td>65.7%</td><td>51.6%</td></tr>
-          <tr><td>iCEM</td><td>LeWM<sub>PUB</sub></td><td>6000</td><td>3343</td><td>71.7%</td><td>54.1%</td><td>78.5%</td><td>74.5%</td><td>63.9%</td><td>53.2%</td></tr>
-          <tr><td>iCEM</td><td>TDV-LeWM</td><td>6000</td><td>3343</td><td>73.7%</td><td>57.6%</td><td>83.2%</td><td>80.4%</td><td>67.2%</td><td>56.6%</td></tr>
-          <tr><td>Adam</td><td>LeWM<sub>REP</sub></td><td>6000</td><td>3343</td><td>68.7%</td><td>48.6%</td><td>79.2%</td><td>70.6%</td><td>64.0%</td><td>48.2%</td></tr>
-          <tr><td>Adam</td><td>LeWM<sub>PUB</sub></td><td>6000</td><td>3343</td><td>69.1%</td><td>49.3%</td><td>77.1%</td><td>67.8%</td><td>63.6%</td><td>48.1%</td></tr>
-          <tr><td>Adam</td><td>TDV-LeWM</td><td>6000</td><td>3343</td><td>70.5%</td><td>51.8%</td><td>81.7%</td><td>76.1%</td><td>65.1%</td><td>51.0%</td></tr>
+          <!-- CEM -->
+          <tr class="planner-start">
+            <th rowspan="3" scope="rowgroup" class="planner">CEM</th>
+            <td>LeWM<sub>REP</sub></td>
+            <td>69.2%</td>
+            <td>51.0%</td>
+            <td>86.9%</td>
+            <td>81.8%</td>
+            <td>66.4%</td>
+            <td>50.8%</td>
+          </tr>
+          <tr>
+            <td>LeWM<sub>PUB</sub></td>
+            <td>68.0%</td>
+            <td>49.1%</td>
+            <td>84.2%</td>
+            <td>79.3%</td>
+            <td>63.6%</td>
+            <td>48.4%</td>
+          </tr>
+          <tr class="best-model">
+            <td>TDV-LeWM</td>
+            <td><strong>72.2%</strong></td>
+            <td><strong>56.3%</strong></td>
+            <td><strong>88.3%</strong></td>
+            <td><strong>85.8%</strong></td>
+            <td><strong>68.5%</strong></td>
+            <td><strong>56.1%</strong></td>
+          </tr>
+    
+          <!-- iCEM -->
+          <tr class="planner-start">
+            <th rowspan="3" scope="rowgroup" class="planner">iCEM</th>
+            <td>LeWM<sub>REP</sub></td>
+            <td>69.8%</td>
+            <td>51.9%</td>
+            <td>83.1%</td>
+            <td>76.7%</td>
+            <td>65.7%</td>
+            <td>51.6%</td>
+          </tr>
+          <tr>
+            <td>LeWM<sub>PUB</sub></td>
+            <td>71.7%</td>
+            <td>54.1%</td>
+            <td>78.5%</td>
+            <td>74.5%</td>
+            <td>63.9%</td>
+            <td>53.2%</td>
+          </tr>
+          <tr class="best-model">
+            <td>TDV-LeWM</td>
+            <td><strong>73.7%</strong></td>
+            <td><strong>57.6%</strong></td>
+            <td><strong>83.2%</strong></td>
+            <td><strong>80.4%</strong></td>
+            <td><strong>67.2%</strong></td>
+            <td><strong>56.6%</strong></td>
+          </tr>
+    
+          <!-- Adam -->
+          <tr class="planner-start">
+            <th rowspan="3" scope="rowgroup" class="planner">Adam</th>
+            <td>LeWM<sub>REP</sub></td>
+            <td>68.7%</td>
+            <td>48.6%</td>
+            <td>79.2%</td>
+            <td>70.6%</td>
+            <td>64.0%</td>
+            <td>48.2%</td>
+          </tr>
+          <tr>
+            <td>LeWM<sub>PUB</sub></td>
+            <td>69.1%</td>
+            <td>49.3%</td>
+            <td>77.1%</td>
+            <td>67.8%</td>
+            <td>63.6%</td>
+            <td>48.1%</td>
+          </tr>
+          <tr class="best-model">
+            <td>TDV-LeWM</td>
+            <td><strong>70.5%</strong></td>
+            <td><strong>51.8%</strong></td>
+            <td><strong>81.7%</strong></td>
+            <td><strong>76.1%</strong></td>
+            <td><strong>65.1%</strong></td>
+            <td><strong>51.0%</strong></td>
+          </tr>
         </tbody>
       </table>
     </div>
-
-    <figure class="chart">
-      <div class="bar-row">
-        <span>TDV-LeWM</span>
-        <div class="track"><div class="fill" style="width: 56.1%"></div></div>
-        <span>56.1%</span>
-      </div>
-      <div class="bar-row">
-        <span>LeWM<sub>REP</sub></span>
-        <div class="track"><div class="fill" style="width: 50.8%"></div></div>
-        <span>50.8%</span>
-      </div>
-      <div class="bar-row">
-        <span>LeWM<sub>PUB</sub></span>
-        <div class="track"><div class="fill" style="width: 48.4%"></div></div>
-        <span>48.4%</span>
-      </div>
-      <figcaption>CEM both-object success with noops removed, pooled over 15k runs.</figcaption>
-    </figure>
-
-    <p>
-      TDV-LeWM is best on every planner and every metric. The gap widens after removing noops, especially for
-      cube/both (CEM both: +2.1 / +4.9 vs \(\mathrm{LeWM_{REP}}\) all / ex-noop).
-      All three models score the gripper much higher than the cube.
-      CEM is the strongest planner for gripper success; iCEM is slightly stronger than CEM on cube/both for TDV.
+    <p class="note">
+      CEM: \(n=15000\) (8551 ex-noop). iCEM and Adam: \(n=6000\) (3343 ex-noop).
+      Pooled across seeds 7, 42, and 101.
     </p>
 
-    <h3>Does the latent cost rank real plans?</h3>
+    <p>
+      TDV-LeWM performs the best with every planner, and the gap widens after removing no-ops, especially for
+      cube/both (CEM both: +2.1 / +4.9 vs \(\mathrm{LeWM_{REP}}\) all / ex-noop). The performance benefit of TDV decreases with a more powerful planner (iCEM and Adam).
+      All three models optimize gripper displacement more effectively than cube displacement, consistent with the gripper occupying a larger share of the image and therefore having greater influence in the latent representation.
+    </p>
+
+    <h2>Evaluation: Latent Cost Ranking</h2>
     <p>
       Higher positive Spearman \(\rho\) means the model assigns lower latent cost to action sequences that actually
       produce better physical outcomes, which is what MPC needs.
@@ -519,6 +614,12 @@
         <em>LeWorldModel: Stable End-to-End Joint-Embedding Predictive Architecture from Pixels</em>.
         arXiv, 2026.
         <a href="https://arxiv.org/abs/2603.19312">arXiv:2603.19312</a>
+      </li>
+      <li>
+        Yilun Kuang, Yash Dagade, Quentin Le Lidec, Lucas Maes, Randall Balestriero, and Yann LeCun.
+        <em>LpWM: A Case for Sparse Representations in World Models</em>.
+        arXiv, 2026.
+        <a href="https://arxiv.org/abs/2608.22764">arXiv:2608.22764</a>
       </li>
       <li>
         Randall Balestriero and Yann LeCun.
