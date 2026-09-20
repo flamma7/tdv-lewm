@@ -90,9 +90,14 @@ figure video {
   height: auto;
 }
 
-figure.figure-half img {
+figure.figure-half {
   width: 50%;
-  margin: 0 auto;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+figure.figure-half img {
+  width: 100%;
 }
 
 figcaption {
@@ -200,6 +205,15 @@ th:not(:first-child) {
   font-weight: 700;
 }
 
+.fig-title {
+  margin: 0 0 0.4rem;
+  font-size: 0.88rem;
+  font-weight: 700;
+  line-height: 1.3;
+  text-align: center;
+  color: #363636;
+}
+
 .panel {
   background: #111;
   overflow: hidden;
@@ -234,8 +248,9 @@ th:not(:first-child) {
   margin: 0;
 }
 
-.fig-grid figcaption {
-  text-align: left;
+.fig-grid figcaption,
+.fig-grid .fig-title {
+  text-align: center;
 }
 
 .legend {
@@ -291,6 +306,26 @@ th:not(:first-child) {
   color: #4a4a4a;
 }
 
+.infra {
+  display: grid;
+  grid-template-columns: 1fr 30rem;
+  gap: 1.1rem 1.25rem;
+  align-items: start;
+}
+
+.infra p {
+  margin-bottom: 0;
+}
+
+.infra figure {
+  margin: 0;
+}
+
+.infra figcaption {
+  font-size: 0.8rem;
+  text-align: left;
+}
+
 @media (max-width: 700px) {
   .hero-figure {
     width: 100%;
@@ -302,6 +337,14 @@ th:not(:first-child) {
   .hero,
   .fig-grid-2,
   .fig-grid-3 {
+    grid-template-columns: 1fr;
+  }
+
+  figure.figure-half {
+    width: 100%;
+  }
+
+  .infra {
     grid-template-columns: 1fr;
   }
 }

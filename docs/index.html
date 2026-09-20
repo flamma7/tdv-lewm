@@ -171,10 +171,7 @@
     <section id="training">
     <h2>Training dynamics</h2>
     <p>
-      Loss curves for the terms in \(\mathcal{L}\). Blue is TDV-LeWM; orange is \(\mathrm{LeWM_{REP}}\).
-      \(\mathcal{L}_{\mathrm{TDV}}\) falls for the TDV model and stays high for the reproduction, which does not
-      train that term. TDV-LeWM needed a larger SIGReg weight (\(\lambda=0.25\) vs \(0.1\)) to offset the extra
-      predictive bias. Other SIGReg hyperparameters were left at the library defaults (1024 projections, 17 knots).
+      Loss curves for the terms in \(\mathcal{L}\). Blue is TDV-LeWM; orange is \(\mathrm{LeWM_{REP}}\). TDV-LeWM needed a larger SIGReg weight (\(\lambda=0.25\) vs \(0.1\)) to offset the extra predictive bias. Other SIGReg hyperparameters were left at the library defaults (1024 projections, 17 knots). If we set \(\alpha=0\) in TDV-LeWM, then it is equivalent to vanilla LeWM, and we can still measure TDV's loss (before it is zeroed out in the loss by \(\alpha\)) via its motion encoder. This is visualized in c) and labeled as LeWM\(_{REP}\). We see that that as LeWM trains \(z_t\) becomes predictive of \(z_{t+1}\),reducing the TDV loss despite the noise from the untrained motion encoder.
     </p>
     <div class="legend">
       <span><span class="swatch tdv"></span>TDV-LeWM</span>
@@ -182,20 +179,20 @@
     </div>
     <div class="fig-grid fig-grid-2">
       <figure>
+        <p class="fig-title">(a) Prediction loss \(\mathcal{L}_{\mathrm{pred}}\)</p>
         <img src="assets/fit_pred.png" alt="Prediction loss over training for TDV-LeWM and LeWM reproduction." loading="lazy">
-        <figcaption>(a) \(\mathcal{L}_{\mathrm{pred}}\)</figcaption>
       </figure>
       <figure>
+        <p class="fig-title">(b) SIGReg loss \(\mathcal{L}_{\mathrm{SIGReg}}\)</p>
         <img src="assets/fit_sigreg.png" alt="SIGReg loss over training for TDV-LeWM and LeWM reproduction." loading="lazy">
-        <figcaption>(b) \(\mathcal{L}_{\mathrm{SIGReg}}\)</figcaption>
       </figure>
       <figure>
+        <p class="fig-title">(c) TDV residual loss \(\mathcal{L}_{\mathrm{TDV}}\)</p>
         <img src="assets/fit_tdv.png" alt="TDV residual loss over training for TDV-LeWM and LeWM reproduction." loading="lazy">
-        <figcaption>(c) \(\mathcal{L}_{\mathrm{TDV}}\)</figcaption>
       </figure>
       <figure>
+        <p class="fig-title">(d) Total loss \(\mathcal{L}\)</p>
         <img src="assets/fit.png" alt="Total training loss for TDV-LeWM and LeWM reproduction." loading="lazy">
-        <figcaption>(d) Total loss</figcaption>
       </figure>
     </div>
 
@@ -209,39 +206,38 @@
       <span><span class="swatch rep"></span>LeWM<sub>REP</sub></span>
       <span><span class="swatch pub"></span>LeWM<sub>PUB</sub> (frozen)</span>
     </div>
-    <div class="fig-grid fig-grid-3">
+    <div class="fig-grid fig-grid-2">
       <figure>
+        <p class="fig-title">(a) Mean per-coordinate variance</p>
         <img src="assets/collapse_meanvar.png" alt="Mean per-coordinate variance over training." loading="lazy">
-        <figcaption>(a) Mean per-coordinate variance</figcaption>
       </figure>
       <figure>
+        <p class="fig-title">(b) RMS of the embedding mean</p>
         <img src="assets/collapse_meanrms.png" alt="RMS of the embedding mean over training." loading="lazy">
-        <figcaption>(b) RMS of the embedding mean</figcaption>
-      </figure>
-      <figure>
-        <img src="assets/collapse_effective_rank_frac.png" alt="Roy-Vetterli effective rank as a fraction of D." loading="lazy">
-        <figcaption>(c) Roy–Vetterli effective rank of the sample covariance, as a fraction of \(D\)</figcaption>
       </figure>
     </div>
+    <figure class="figure-half">
+      <p class="fig-title">(c) Roy–Vetterli effective rank (fraction of \(D\))</p>
+      <img src="assets/collapse_effective_rank_frac.png" alt="Roy-Vetterli effective rank as a fraction of D." loading="lazy">
+    </figure>
 
     </section>
 
     <section id="infrastructure">
     <h2>Infrastructure</h2>
-    <p>
-      I used RunPod Community Cloud for training and evaluation sweeps. The controller had to deal with
-      unreliable NVIDIA drivers (start the container, detect a bad machine, shut down, and redeploy),
-      frequent checkpoints because jobs can die mid-run, and a single job-config YAML that specifies
-      hardware, hyperparameters, evaluation type, and seeds.
-    </p>
-    <figure>
-      <img src="assets/infrastructure.jpg" alt="RunPod training infrastructure: local jobs.yaml and controller.py deploy GPU containers, which log to Weights and Biases and push checkpoints to Hugging Face." loading="lazy">
-      <figcaption>
-        One <code>jobs.yaml</code> drives training and eval containers on RunPod. Artifacts go to
-        <a href="https://huggingface.co/flamma77/lewm-base">Hugging Face</a>;
-        metrics go to Weights &amp; Biases. Failed driver detections recycle the pod onto another machine.
-      </figcaption>
-    </figure>
+    <div class="infra">
+      <p>
+        Training and evaluation were primarily done on the Runpod Community cloud. I opted to build deployment infrastructure to quickly perform hyperparameter sweeps and run various evaluation types across different seeds. The infrastructure I built can be visualized in the figure on the right and was robust to Runpod's commonly unreliable NVIDIA drivers and occasional machine crashes. 
+      </p>
+      <figure>
+        <img src="assets/infrastructure.jpg" alt="RunPod training infrastructure: local jobs.yaml and controller.py deploy GPU containers, which log to Weights and Biases and push checkpoints to Hugging Face." loading="lazy">
+        <figcaption>
+          One <code>jobs.yaml</code> drives training and eval containers on RunPod. Artifacts go to
+          <a href="https://huggingface.co/flamma77/lewm-base">Hugging Face</a>;
+          metrics go to Weights &amp; Biases. Failed driver detections recycle the pod onto another machine.
+        </figcaption>
+      </figure>
+    </div>
 
     </section>
 
