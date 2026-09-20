@@ -16,8 +16,15 @@ reported per seed. Scale-consistency checks apply within a seed, not across
 seeds.
 
 Higher positive Spearman ρ means the model ranks candidate plans more
-usefully for MPC. Correlation is computed per scenario (same start/goal,
-varying candidates) then averaged; pooled ρ over all pairs is also reported.
+usefully for MPC.
+
+Per-scenario ρ is computed independently for each start/goal: the N candidate
+costs from that scenario are ranked against each other, then those ρs are
+averaged (mean±std). Pooled ρ is a single Spearman over the flattened
+(scenario, candidate) pairs — every latent/physical cost pair in the eval,
+ignoring scenario boundaries. Because pooled mixes easy and hard scenes into
+one ranking, it can be larger than the per-scenario mean when absolute costs
+also vary across start/goal pairs.
 
 python analysis/analyze_plan.py data/
 python analysis/analyze_plan.py data/ogb_cube_plan.npz
@@ -67,6 +74,11 @@ def summarize(rhos):
 
 
 def pooled_spearman(latent, physical):
+    """Spearman ρ over all (scenario, candidate) pairs as one ranking.
+
+    Unlike per-scenario ρ, this concatenates every candidate from every
+    start/goal into two long vectors and correlates them once.
+    """
     x = np.asarray(latent, dtype=np.float64).reshape(-1)
     y = np.asarray(physical, dtype=np.float64).reshape(-1)
     if np.std(x) < 1e-12 or np.std(y) < 1e-12:

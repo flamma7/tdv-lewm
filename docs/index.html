@@ -60,34 +60,20 @@
     </figure>
 
     <p>
-      I was inspired by the
-      <a href="https://arxiv.org/abs/2606.15956">TDV</a>
-      paper’s simple motion objective — current embedding plus encoded pixel difference should recover the next embedding —
-      to ask whether that bias would help planning in a latent world model.
-      Adding TDV supervision to
+      Joint-Embedding Predictive Architecture (JEPA) world models are becoming increasingly capable, with
       <a href="https://arxiv.org/abs/2603.19312">LeWM</a>
-      improves CEM, iCEM, and Adam planning on OGBench-Cube, with a larger gap once evaluation noops are removed.
-      I kept LeWM’s SIGReg collapse regularizer instead of TDV’s DINO-style knowledge distillation, trained on
-      RunPod Community Cloud with a controller that retries flaky GPUs, and found that the same pixel-difference
-      bias does <em>not</em> further straighten the latent trajectory.
-      In the sampling used for OGBench-Cube, including in
-      <a href="https://github.com/galilai-group/stable-worldmodel">stable-worldmodel</a>,
-      about 39% of scenarios are cube noops: the cube already starts within the goal threshold.
-      Success rates drop for every world model after removing noop scenarios, particularly for optimizing the cube’s goal displacement.
-      This highlights a significant amount of LeWM’s reported success on OGBenchCube is due to a measurement bias in the form of noop scenarios.
-      TDV-LeWM’s success rate gap compared to LeWM widens after removing noops.
-      All models prioritize the gripper over the cube when optimizing toward the goal latent.
-      This is consistent with the gripper occupying more pixels and therefore more of the latent manifold that MPC optimizes.
-    </p>
-    <p>
-      <strong>Summary.</strong>
-      I took LeWM’s architecture and applied a TDV-inspired loss to bias the latent space toward motion and pixel differences.
-      This was motivated by TDV’s gains over other SSL methods in visually dense environments, which I hypothesized could aid LeWM’s performance in the visually complex task of OGBenchCube.
-      In the process I discovered a large confound of no-op scenarios in the evaluation set that was inflating LeWM and likely many other world models’ performances.
-      TDV-LeWM outperforms LeWM on optimizing the position of the cube, gripper and both objects, and its lead extends when removing no-op scenarios, supporting the hypothesis that biasing the latent space toward motion and pixel differences helps planning in visually dense environments.
+      showing that a small, simple architecture using SIGReg can learn effective latent dynamics directly from pixels.
+      Recent work on
+      <a href="https://arxiv.org/abs/2606.15956">Temporal Difference in Vision (TDV)</a>
+      introduced a self-supervised learning signal based on the causal structure of pixel differences in video, with particular strength in visually dense environments.
+      In this work, I add a TDV-style auxiliary representation-learning signal to LeWM to bias its representation away from appearance and toward motion and task-relevant geometry.
+      I train the model end-to-end on a single GPU and evaluate it on OGBench-Cube, the most visually complex task studied by LeWM and its weakest-performing benchmark.
+      I also find that roughly 38% of OGBench-Cube evaluation scenarios are already successful at initialization, inflating reported performance and making the task appear closer to saturation than it is.
+      On the remaining non-trivial scenarios, LeWM achieves only about 50% cube success, while TDV-LeWM reaches 56%, a 5.3 percentage-point improvement across 15k scenarios.
+      Because LeWM optimizes the latent representation of the full image, I also evaluate gripper and joint cube-gripper outcomes, where the TDV inductive bias improves performance consistently and the gains generally widen after removing no-operation cases.
     </p>
 
-    Primary Contributions:
+    <!-- Primary Contributions:
     <ul>
       <li>
         <strong>LeWM is augmented</strong> with a motion encoder and TDV-style loss during training to bias the latent space toward pixel differences. The performance of TDV-LeWM is evaluated via the success rates of various MPC planners (CEM, iCEM, Adam) on OGBench-Cube.
@@ -95,7 +81,7 @@
       <li>
         <strong>No-op confound analysis:</strong> A brief analysis demonstrates that a substantial fraction of no-operation scenarios in the OGBenchCube evaluation set (<em>e.g.</em>, cases where the cube or gripper is already at the goal) artificially inflates MPC success metrics on the task.
       </li>
-    </ul>
+    </ul> -->
 
     <section id="overview">
     <h2>Overview</h2>
@@ -125,7 +111,7 @@
         I kept LeWM’s SIGReg term and did not retrain TDV’s DINO-style teacher network with a stop-gradient (redundant with SIGReg regularization).
       </li>
       <li>
-        <strong>Motion encoder.</strong>
+        <strong>Motion encoder \(m_\phi\).</strong>
         \(\Delta x_t = x_{t+1} - x_t\) is patchified and fed to a ViT-T/14 motion encoder that cross-attends to the
         image encoder’s feature map \(H_t\). \(\Delta z_t\) is outputted from the CLS token. The TDV paper found that contextualizing pixel differences with the current latent
         was important.
@@ -133,7 +119,7 @@
       <li>
         <strong>Data.</strong>
         OGBench-Cube (single cube) through
-        <a href="https://github.com/galilai-group/stable-worldmodel">stable-worldmodel</a>
+        <a href="https://github.com/galilai-group/stable-worldmodel">stable-worldmodel (SWM)</a>
         (<a href="https://huggingface.co/datasets/galilai-group/ogb_cube_single">galilai-group/ogb_cube_single</a>).
         I kept the usual frameskip of 5 and scenario horizon of 25.
       </li>
@@ -148,10 +134,8 @@
       <li>
         <strong>Training.</strong>
         ViT-T/14 encoder, 10 epochs, batch size 128, learning rate \(5\times 10^{-5}\), on RTX 5090s via RunPod.
-        Best TDV-LeWM run: \(\alpha=1.0\), \(\lambda=0.25\)
-        (<code>tdv_a1.0_lam0.25_lr5e-5</code>).
-        \(\mathrm{LeWM_{REP}}\) uses \(\lambda=0.1\)
-        (<code>lewm_lam0.1_lr5e-5</code>).
+        Best TDV-LeWM run: \(\alpha=1.0\), \(\lambda=0.25\). My reproduction of LeWM, 
+        \(\mathrm{LeWM_{REP}}\), uses \(\lambda=0.1\).
       </li>
       <li>
         <strong>TDV-LeWM MPC Analysis.</strong>
@@ -195,7 +179,7 @@
       </figure>
     </div>
     <p>
-      Loss curves for the terms in \(\mathcal{L}\). Blue is TDV-LeWM; orange is \(\mathrm{LeWM_{REP}}\). TDV-LeWM needed a larger SIGReg weight (\(\lambda=0.25\) vs \(0.1\)) to offset the extra predictive bias. Other SIGReg hyperparameters were left at the library defaults (1024 projections, 17 knots). If we set \(\alpha=0\) in TDV-LeWM, then it is equivalent to vanilla LeWM, and we can still measure TDV's loss (before it is zeroed out in the loss by \(\alpha\)) via its motion encoder. This is visualized in c) and labeled as LeWM\(_{REP}\). We see that that as LeWM trains \(z_t\) becomes predictive of \(z_{t+1}\),reducing the TDV loss despite the noise from the untrained motion encoder.
+      Loss curves for the terms in \(\mathcal{L}\). TDV-LeWM needed a larger SIGReg weight (\(\lambda=0.25\) vs \(0.1\)) to offset the extra predictive bias. Other SIGReg hyperparameters were left at the SWM library defaults (1024 projections, 17 knots). If we set \(\alpha=0\) in TDV-LeWM, then it is equivalent to vanilla LeWM, and we can still measure TDV's loss (before it is zeroed out in the loss by \(\alpha\)) via its motion encoder. This is visualized in c) and labeled as LeWM\(_{REP}\). We see that that as LeWM trains \(z_t\) becomes predictive of \(z_{t+1}\),reducing the TDV loss despite the noise from the untrained motion encoder.
     </p>
 
     <h3>Collapse Diagnostics</h3>
@@ -219,7 +203,7 @@
       <img src="assets/collapse_effective_rank_frac.png" alt="Roy-Vetterli effective rank as a fraction of D." loading="lazy">
     </figure>
     <p>
-      Collapse diagnostics on post-projection embeddings, with frozen \(\mathrm{LeWM_{PUB}}\) as a reference.
+      Collapse diagnostics on post-projection embeddings across optimization steps (over 10 epochs), with frozen \(\mathrm{LeWM_{PUB}}\) as a reference.
       The short transient in (b) and (c) for the frozen published model is the temporal averaging buffer filling up.
       \(\mathrm{LeWM_{PUB}}\) keeps a slightly higher Roy–Vetterli effective rank than both models I trained.
     </p>
@@ -304,7 +288,7 @@
       documented at 65–70% in Figure 4a of the LpWM paper, largely disappears and
       the benchmark retains discriminative power. More fundamentally, it is
       difficult to reconcile characterizing the planning problem as “easy” with
-      reported success rates below 70% (in the paper and across many other works), particularly when a substantial fraction
+      reported success rates below 70% (in LeWM, LpWM, and across many other works), particularly when a substantial fraction
       of the evaluation set is already successful at initialization.
     </p>
 
