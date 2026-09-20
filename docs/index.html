@@ -566,21 +566,20 @@
 
     <section id="future">
     <h2>Future work</h2>
-    <ol>
+    <ul>
       <li>
-        TDV’s pixel-difference bias may help more in environments where actions do not fully explain visual
-        transitions, such as Atari.
+        <strong>Action-ambiguous environments.</strong>
+        TDV’s pixel-difference bias may provide larger gains in settings where actions do not fully
+        explain visual transitions, such as Atari.
       </li>
       <li>
-        stable-worldmodel includes appearance-robustness evaluation tools.
-        Biasing the latent toward motion may help under color shifts, because the motion encoder sees
-        \(\Delta x_t\) rather than absolute appearance.
+        <strong>Appearance robustness.</strong>
+        Stable-WorldModel’s Push-T robustness suite provides a direct test of whether TDV reduces
+        LeWM’s reliance on appearance cues. Since TDV derives features from temporal differences
+        rather than absolute appearance, it may improve robustness to color and texture shifts that
+        substantially degrade LeWM.
       </li>
-      <li>
-        LeWM already performs well on the other main SWM environments (Two-Room, Reacher, and PushT),
-        so there is less room for TDV to move the needle there.
-      </li>
-    </ol>
+    </ul>
 
     </section>
 
