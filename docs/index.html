@@ -198,6 +198,7 @@
       Loss curves for the terms in \(\mathcal{L}\). Blue is TDV-LeWM; orange is \(\mathrm{LeWM_{REP}}\). TDV-LeWM needed a larger SIGReg weight (\(\lambda=0.25\) vs \(0.1\)) to offset the extra predictive bias. Other SIGReg hyperparameters were left at the library defaults (1024 projections, 17 knots). If we set \(\alpha=0\) in TDV-LeWM, then it is equivalent to vanilla LeWM, and we can still measure TDV's loss (before it is zeroed out in the loss by \(\alpha\)) via its motion encoder. This is visualized in c) and labeled as LeWM\(_{REP}\). We see that that as LeWM trains \(z_t\) becomes predictive of \(z_{t+1}\),reducing the TDV loss despite the noise from the untrained motion encoder.
     </p>
 
+    <h3>Collapse Diagnostics</h3>
     <div class="legend">
       <span><span class="swatch tdv"></span>TDV-LeWM</span>
       <span><span class="swatch rep"></span>LeWM<sub>REP</sub></span>
@@ -312,7 +313,7 @@
     <section id="planning">
     <h2>Evaluation: MPC Success Rates</h2>
     <p>
-      Evaluation was done using the standard method for SWM on the OGBenchCube task and the method used in the LeWM paper, which is anytime displacement of the cube below 4cm from its goal position. Because the latent represents the state of the entire image, I introduce two other metrics: the gripper's goal displacement, and both, meaning the cube and gripper each reach their goal (the intersection of the two success events). For the gripper I use the same anytime goal displacement threshold of 4cm.
+      Evaluation was done using the method in LeWM paper and the standard method for SWM on the OGBenchCube task: anytime displacement of the cube below 4cm from its goal position. Because the latent represents the state of the entire image, I introduce two other metrics: the gripper's goal displacement, and "both", meaning the cube and gripper each reach their goal (the intersection of the two success events). For the gripper I use the same anytime goal displacement threshold of 4cm.
     </p>
     <p>
       As discussed in the <a href="#noops">No-Op Evaluation</a> section, the sampling distribution of OGBenchCube includes a plethora of no-op scenarios for the cube and gripper. The following table shows the MPC success rates across various planners, including conditioning on removal of no-op scenarios.
@@ -438,15 +439,51 @@
 
     <h2>Evaluation: Latent Cost Ranking</h2>
     <p>
-      Higher positive Spearman \(\rho\) means the model assigns lower latent cost to action sequences that actually
-      produce better physical outcomes, which is what MPC needs.
+      As an additional evaluation, I measure whether the latent cost used by MPC correctly ranks
+      candidate action sequences by their true physical outcomes, an important property for effective MPC.
+    </p>
+    <p>
+      For a fixed initial state and goal, I sample candidate action sequences
+      \((a^{(1)},\dots,a^{(N)})\). For each candidate, the world model predicts the terminal latent
     </p>
     <div class="eq">
-      $$\rho(C_{\mathrm{latent}}, C_{\mathrm{cube}}),\quad
-      \rho(C_{\mathrm{latent}}, C_{\mathrm{gripper}}),\quad
-      \rho(C_{\mathrm{latent}}, C_{\mathrm{cg}})$$
-      $$C_{\mathrm{cg}} = C_{\mathrm{cube}}/s_{\mathrm{cube}} + C_{\mathrm{gripper}}/s_{\mathrm{gripper}}$$
+      $$\hat{z}_H^{(i)} = \mathrm{Pred}\bigl(\mathrm{Enc}(x_0),\, a^{(i)}\bigr)$$
     </div>
+    <p>
+      with latent planning cost
+    </p>
+    <div class="eq">
+      $$C_{\mathrm{latent}}^{(i)} = \lVert \hat{z}_H^{(i)} - z_g \rVert_2^2,
+      \qquad z_g = \mathrm{Enc}(x_g)$$
+    </div>
+    <p>
+      The same action sequence is then executed in the simulator to measure the resulting physical costs:
+    </p>
+    <div class="eq">
+      $$C_{\mathrm{cube}}^{(i)} = \lVert p_{\mathrm{cube},H}^{(i)} - p_{\mathrm{cube},g} \rVert_2$$
+      $$C_{\mathrm{gripper}}^{(i)} = \lVert p_{\mathrm{gripper},H}^{(i)} - p_{\mathrm{gripper},g} \rVert_2$$
+    </div>
+    <p>
+      I also define a normalized combined cost
+    </p>
+    <div class="eq">
+      $$C_{\mathrm{cg}}^{(i)} =
+      \frac{C_{\mathrm{cube}}^{(i)}}{s_{\mathrm{cube}}}
+      +
+      \frac{C_{\mathrm{gripper}}^{(i)}}{s_{\mathrm{gripper}}}$$
+    </div>
+    <p>
+      I then compute the Spearman rank correlations
+    </p>
+    <div class="eq">
+      $$\rho(C_{\mathrm{latent}}, C_{\mathrm{cube}}),\qquad
+      \rho(C_{\mathrm{latent}}, C_{\mathrm{gripper}}),\qquad
+      \rho(C_{\mathrm{latent}}, C_{\mathrm{cg}})$$
+    </div>
+    <p>
+      Higher positive \(\rho\) means that action sequences preferred by the latent objective also
+      tend to produce better physical outcomes, which is the ranking behavior useful for MPC.
+    </p>
     <p>
       Pooled over 3 seeds, 600 scenarios \(\times\) 64 candidates. mean\(\pm\)std is per-scenario \(\rho\);
       parentheses are pooled \(\rho\).
@@ -466,7 +503,7 @@
           <tr>
             <td>LeWM<sub>REP</sub></td>
             <td>+0.135±0.212 (+0.563)</td>
-            <td>+0.444±0.296 (+0.514)</td>
+            <td><strong>+0.444±0.296 (+0.514)</strong></td>
             <td>+0.417±0.277 (+0.632)</td>
             <td>90%</td>
           </tr>
@@ -479,16 +516,17 @@
           </tr>
           <tr>
             <td>TDV-LeWM</td>
-            <td>+0.165±0.199 (+0.608)</td>
+            <td><strong>+0.165±0.199 (+0.608)</strong></td>
             <td>+0.431±0.262 (+0.521)</td>
-            <td>+0.426±0.230 (+0.657)</td>
-            <td>94%</td>
+            <td><strong>+0.426±0.230 (+0.657)</strong></td>
+            <td><strong>94%</strong></td>
           </tr>
         </tbody>
       </table>
     </div>
     <p>
-      TDV ranks cube and \(C_{\mathrm{cg}}\) best. All models rank the gripper much more faithfully than the cube.
+      TDV-LeWM gives the strongest ranking of cube outcomes and the combined objective, while all
+      three models rank gripper outcomes substantially more faithfully than cube outcomes.
     </p>
 
     </section>
