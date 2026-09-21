@@ -579,6 +579,11 @@
         rather than absolute appearance, it may improve robustness to color and texture shifts that
         substantially degrade LeWM.
       </li>
+      <li>
+        <strong>Motion-encoder contextualization.</strong>
+        The current \(m_\phi\) contextualizes \(\Delta x_t\) by cross-attending to the encoder feature map \(H_t\).
+        An ablation would instead run self-attention over the pixel-difference tokens and condition on the projected embedding \(z_t\) via AdaLN, testing whether TDV needs the spatial feature map or whether a compact latent is sufficient context.
+      </li>
     </ul>
 
     </section>
@@ -660,12 +665,12 @@
         arXiv, 2026.
         <a href="https://arxiv.org/abs/2603.12231">arXiv:2603.12231</a>
       </li>
-      <li>
+      <!-- <li>
         Haiyu Wu, Randall Balestriero, and Morgan Levine.
         <em>VISReg: Variance-Invariance-Sketching Regularization for JEPA training</em>.
         arXiv, 2026.
         <a href="https://arxiv.org/abs/2606.02572">arXiv:2606.02572</a>
-      </li>
+      </li> -->
     </ol>
     </section>
   </div>
