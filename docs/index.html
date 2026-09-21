@@ -53,7 +53,7 @@
     </div>
     <figcaption>
       <strong>a)</strong> TDV-LeWM and the released LeWM checkpoint optimizing the latent goal state.
-      <strong>b)</strong> No-operation (no-op) trial where the agent succeeds without necessitating any action (zero displacement of cube from goal state). These are abundant in the evaluation set and inflate success rates on OGBenchCube.
+      <strong>b)</strong> No-operation (no-op) trial where the agent succeeds without necessitating any action (zero displacement of cube from goal state). These are abundant in the evaluation set and inflate success rates on OGBench-Cube.
       <strong>c)</strong> CEM planning success rates and no-op effects for the cube, gripper and both objects across 3 seeds (15k runs) for TDV-LeWM, LeWM’s released checkpoint
       (\(\mathrm{LeWM_{PUB}}\)) and my reproduction of LeWM (\(\mathrm{LeWM_{REP}}\)). 
     </figcaption>
@@ -79,7 +79,7 @@
         <strong>LeWM is augmented</strong> with a motion encoder and TDV-style loss during training to bias the latent space toward pixel differences. The performance of TDV-LeWM is evaluated via the success rates of various MPC planners (CEM, iCEM, Adam) on OGBench-Cube.
       </li>
       <li>
-        <strong>No-op confound analysis:</strong> A brief analysis demonstrates that a substantial fraction of no-operation scenarios in the OGBenchCube evaluation set (<em>e.g.</em>, cases where the cube or gripper is already at the goal) artificially inflates MPC success metrics on the task.
+        <strong>No-op confound analysis:</strong> A brief analysis demonstrates that a substantial fraction of no-operation scenarios in the OGBench-Cube evaluation set (<em>e.g.</em>, cases where the cube or gripper is already at the goal) artificially inflates MPC success metrics on the task.
       </li>
     </ul> -->
 
@@ -229,9 +229,9 @@
     </section>
 
     <section id="noops">
-    <h2>OGBenchCube No-Operation Scenarios</h2>
+    <h2>OGBench-Cube No-Operation Scenarios</h2>
     <p>
-      A no-op is defined as a scenario whose start displacement is already below the 4cm success threshold for OGBenchCube in the Mujoco simulator. Thereby, these scenarios are trivially successful for any planner. This occurs as a sampling artifact because the evaluation set samples random 25-step sequences from the dataset, and a large percentage of sequences have starting and ending object positions within the 4cm threshold. The table below shows the no-op counts for the cube, gripper, and both objects across 15k randomly sampled scenarios over 3 seeds
+      A no-op is defined as a scenario whose start displacement is already below the 4cm success threshold for OGBench-Cube in the Mujoco simulator. Thereby, these scenarios are trivially successful for any planner. This occurs as a sampling artifact because the evaluation set samples random 25-step sequences from the dataset, and a large percentage of sequences have starting and ending object positions within the 4cm threshold. The table below shows the no-op counts for the cube, gripper, and both objects across 15k randomly sampled scenarios over 3 seeds
     </p>
     <p> I include gripper no-ops because LeWM encodes the full scene into a single latent. As the next section shows, LeWM typically prioritizes minimizing gripper latent displacement over the cube's.
     </p>
@@ -257,7 +257,7 @@
     <p>
       <strong>Cube no-ops make up ~38% of the evaluation set</strong> and account for most of the inflation in cube and both success rates. Gripper no-ops make up ~9%. The joint both-no-op rate is only ~4%, meaning that most cube no-ops still require the gripper to move. The union of scenarios where either the cube or gripper is already at goal is 6449/15000 (43.0%).
     </p>
-    <h3>OGBenchCube Retaining Discriminative Power Discussion</h3>
+    <h3>OGBench-Cube Retaining Discriminative Power Discussion</h3>
     <p>
       In a recent work,
       <a href="https://arxiv.org/abs/2608.22764">LpWM</a>
@@ -280,7 +280,7 @@
       </footer>
     </blockquote>
     <p>
-      I argue that the apparent saturation of OGBenchCube and the planning task appearing
+      I argue that the apparent saturation of OGBench-Cube and the planning task appearing
       “easy” is not simply a consequence of short-horizon planning; the standard
       evaluation is heavily biased toward trivially successful configurations:
       38% of episodes begin with the cube already inside the success threshold.
@@ -297,10 +297,10 @@
     <section id="planning">
     <h2>Evaluation: MPC Success Rates</h2>
     <p>
-      Evaluation was done using the method in LeWM paper and the standard method for SWM on the OGBenchCube task: anytime displacement of the cube below 4cm from its goal position. Because the latent represents the state of the entire image, I introduce two other metrics: the gripper's goal displacement, and "both", meaning the cube and gripper each reach their goal (the intersection of the two success events). For the gripper I use the same anytime goal displacement threshold of 4cm.
+      Evaluation was done using the method in LeWM paper and the standard method for SWM on the OGBench-Cube task: anytime displacement of the cube below 4cm from its goal position. Because the latent represents the state of the entire image, I introduce two other metrics: the gripper's goal displacement, and "both", meaning the cube and gripper each reach their goal (the intersection of the two success events). For the gripper I use the same anytime goal displacement threshold of 4cm.
     </p>
     <p>
-      As discussed in the <a href="#noops">No-Op Evaluation</a> section, the sampling distribution of OGBenchCube includes a plethora of no-op scenarios for the cube and gripper. The following table shows the MPC success rates across various planners, including conditioning on removal of no-op scenarios.
+      As discussed in the <a href="#noops">No-Op Evaluation</a> section, the sampling distribution of OGBench-Cube includes a plethora of no-op scenarios for the cube and gripper. The following table shows the MPC success rates across various planners, including conditioning on removal of no-op scenarios.
     </p>
     <div class="table-wrap">
       <table class="mpc">
