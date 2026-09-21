@@ -210,24 +210,6 @@
 
     </section>
 
-    <section id="infrastructure">
-    <h2>Infrastructure</h2>
-    <div class="infra">
-      <p>
-        Training and evaluation were primarily done on the Runpod Community cloud. I opted to build deployment infrastructure to quickly perform hyperparameter sweeps and run various evaluation types across different seeds. The infrastructure I built can be visualized in the figure on the right and was robust to Runpod's commonly unreliable NVIDIA drivers and occasional machine crashes. 
-      </p>
-      <figure>
-        <img src="assets/infrastructure.jpg" alt="RunPod training infrastructure: local jobs.yaml and controller.py deploy GPU containers, which log to Weights and Biases and push checkpoints to Hugging Face." loading="lazy">
-        <figcaption>
-          One <code>jobs.yaml</code> drives training and eval containers on RunPod. Artifacts go to
-          <a href="https://huggingface.co/flamma77/lewm-base">Hugging Face</a>;
-          metrics go to Weights &amp; Biases. Failed driver detections recycle the pod onto another machine.
-        </figcaption>
-      </figure>
-    </div>
-
-    </section>
-
     <section id="noops">
     <h2>OGBench-Cube No-Operation Scenarios</h2>
     <p>
@@ -585,6 +567,24 @@
       </li>
     </ul>
 
+    </section>
+
+    <section id="infrastructure">
+      <h2>Infrastructure</h2>
+      <div class="infra">
+        <p>
+          Training and evaluation were primarily done on the Runpod Community cloud. I opted to build deployment infrastructure to quickly perform hyperparameter sweeps and run various evaluation types across different seeds. The infrastructure I built can be visualized in the figure on the right and was robust to Runpod's commonly unreliable NVIDIA drivers and occasional machine crashes. 
+        </p>
+        <figure>
+          <img src="assets/infrastructure.jpg" alt="RunPod training infrastructure: local jobs.yaml and controller.py deploy GPU containers, which log to Weights and Biases and push checkpoints to Hugging Face." loading="lazy">
+          <figcaption>
+            One <code>jobs.yaml</code> drives training and eval containers on RunPod. Artifacts go to
+            <a href="https://huggingface.co/flamma77/lewm-base">Hugging Face</a>;
+            metrics go to Weights &amp; Biases. Failed driver detections recycle the pod onto another machine.
+          </figcaption>
+        </figure>
+      </div>
+  
     </section>
 
     <!-- <section id="visreg">
