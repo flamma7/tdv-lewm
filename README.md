@@ -4,19 +4,23 @@ Applying TDV-style motion learning to LeWM on OGBench-Cube.
 
 [Project page](https://flamma7.github.io/tdv-lewm/) · [Model weights](https://huggingface.co/flamma77/lewm-base)
 
-<video src="./docs/assets/combined_9.mp4" width="100%" autoplay muted loop playsinline controls></video>
+![TDV-LeWM and the released LeWM checkpoint optimizing the latent goal state.](./docs/assets/combined_9.gif)
 
 ## Approach
 
-TDV-LeWM: I augmented LeWorldModel with a TDV-style motion encoder to bias the latent space away toward motion and task-relevant geometry. The motion encoder maps \(\Delta x_t\) with cross-attention to \(H_t\), and the residual \(\Delta z_t\) is trained so that \(z_t + \Delta z_t \approx z_{t+1}\). I also analyzed the OGBench-Cube dataset and discovered ~38% of this popular benchmark is trivially successful, inflating MPC performance metrics.
+TDV-LeWM: I augmented LeWorldModel with a TDV-style motion encoder to bias the latent space away toward motion and task-relevant geometry. The motion encoder maps $`\Delta x_t`$ with cross-attention to $`H_t`$, and the residual $`\Delta z_t`$ is trained so that $`z_t + \Delta z_t \approx z_{t+1}`$. I also analyzed the OGBench-Cube dataset and discovered ~38% of this popular benchmark is trivially successful, inflating MPC performance metrics.
 
-$$(z_t, H_t) = \mathrm{Enc}(x_t), \qquad \Delta z_t = m_\phi(\Delta x_t, H_t), \qquad \mathcal{L}_{\mathrm{TDV}} = \lVert z_t + \Delta z_t - z_{t+1} \rVert^2$$
+```math
+(z_t, H_t) = \mathrm{Enc}(x_t), \qquad \Delta z_t = m_\phi(\Delta x_t, H_t), \qquad \mathcal{L}_{\mathrm{TDV}} = \lVert z_t + \Delta z_t - z_{t+1} \rVert^2
+```
 
-$$\mathcal{L} = \mathcal{L}_{\mathrm{pred}} + \lambda\,\mathcal{L}_{\mathrm{SIGReg}} + \alpha\,\mathcal{L}_{\mathrm{TDV}}$$
+```math
+\mathcal{L} = \mathcal{L}_{\mathrm{pred}} + \lambda\,\mathcal{L}_{\mathrm{SIGReg}} + \alpha\,\mathcal{L}_{\mathrm{TDV}}
+```
 
-- **Model.** ViT-T/14 motion encoder on \(\Delta x_t\), cross-attending to \(H_t\). Predictor unchanged from LeWM. Motion encoder discarded at planning time. SIGReg instead of TDV’s DINO teacher.
+- **Model.** ViT-T/14 motion encoder on $`\Delta x_t`$, cross-attending to $`H_t`$. Predictor unchanged from LeWM. Motion encoder discarded at planning time. SIGReg instead of TDV’s DINO teacher.
 - **Data.** OGBench-Cube (single cube) through [stable-worldmodel](https://github.com/galilai-group/stable-worldmodel). Frameskip 5, horizon 25.
-- **Training.** 10 epochs, batch size 128, learning rate \(5\times 10^{-5}\), on RTX 5090s via RunPod. Best run: \(\alpha=1.0\), \(\lambda=0.25\).
+- **Training.** 10 epochs, batch size 128, learning rate $5\times 10^{-5}$, on RTX 5090s via RunPod. Best run: $\alpha=1.0$, $\lambda=0.25$.
 - **Evaluation.** CEM, iCEM, and Adam anytime success on the cube, the gripper, and both (4 cm).
 
 ## Repo layout
@@ -35,15 +39,15 @@ analysis/                         # no-op counts, MPC tables, ranking, straightn
 docs/                             # project page
 ```
 
-Reported TDV-LeWM numbers are from `scripts/train/lewm_tdv.py` (\(\alpha=1.0\), \(\lambda=0.25\)). `lewm.py` is \(\mathrm{LeWM_{REP}}\). `controller.py` reads a `job_configs/*.yaml` and launches training or eval on RunPod; checkpoints go to [Hugging Face](https://huggingface.co/flamma77/lewm-base).
+Reported TDV-LeWM numbers are from `scripts/train/lewm_tdv.py` ($`\alpha=1.0`$, $`\lambda=0.25`$). `lewm.py` is $`\mathrm{LeWM_{REP}}`$. `controller.py` reads a `job_configs/*.yaml` and launches training or eval on RunPod; checkpoints go to [Hugging Face](https://huggingface.co/flamma77/lewm-base).
 
 ## Learnings
 
 - Cube no-ops are ~38% of the eval set and account for most of the inflation in cube and both-object success. Once they are removed, success rate drops considerably for LeWM, and the performance improvement of TDV-LeWM in comparison widens.
 - Every model scores the gripper much higher than the cube. The gripper occupies more of the image, so it takes a larger share of the latent that MPC optimizes. Most cube no-ops still require the gripper to move (the joint both-no-op rate is only ~4%).
-- TDV-LeWM needed a larger SIGReg weight (\(\lambda=0.25\) vs \(0.1\)) to offset the extra predictive bias from \(\mathcal{L}_{\mathrm{TDV}}\). The published checkpoint also keeps a slightly higher Roy–Vetterli effective rank than either model I trained.
-- TDV ranks cube outcomes and the combined cube–gripper objective best (pooled Spearman \(\rho_{\mathrm{cube}}=0.608\), \(\rho_{\mathrm{cg}}=0.657\), positive \(\rho_{\mathrm{cg}}\) on 94% of scenarios). Gripper outcomes are ranked more faithfully than cube outcomes for all three models.
-- Learning the one-step displacement \(z_{t+1} \approx z_t + \Delta z_t\) does not straighten latent trajectories. Mean consecutive-velocity cosine is 0.661 for TDV-LeWM, against 0.674 and 0.669 for \(\mathrm{LeWM_{REP}}\) and \(\mathrm{LeWM_{PUB}}\).
+- TDV-LeWM needed a larger SIGReg weight ($`\lambda=0.25`$ vs $`0.1`$) to offset the extra predictive bias from $`\mathcal{L}_{\mathrm{TDV}}`$. The published checkpoint also keeps a slightly higher Roy–Vetterli effective rank than either model I trained.
+- TDV ranks cube outcomes and the combined cube–gripper objective best (pooled Spearman $`\rho_{\mathrm{cube}}=0.608`$, $`\rho_{\mathrm{cg}}=0.657`$, positive $`\rho_{\mathrm{cg}}`$ on 94% of scenarios). Gripper outcomes are ranked more faithfully than cube outcomes for all three models.
+- Learning the one-step displacement $`z_{t+1} \approx z_t + \Delta z_t`$ does not straighten latent trajectories. Mean consecutive-velocity cosine is 0.661 for TDV-LeWM, against 0.674 and 0.669 for $`\mathrm{LeWM_{REP}}`$ and $`\mathrm{LeWM_{PUB}}`$.
 
 ## References
 
