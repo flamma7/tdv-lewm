@@ -1,103 +1,54 @@
-# Runpod instructions
+# TDV-LeWM: Temporal-Difference Supervision for Latent World-Model Planning
 
-Community Cloud learnings: always use the US or Canda! 
+Applying TDV-style motion learning to LeWM on OGBench-Cube.
 
-Configures stable-wm and wandb 
+[Project page](https://flamma7.github.io/tdv-lewm/) · [Model weights](https://huggingface.co/flamma77/lewm-base)
+
+<video src="./docs/assets/combined_9.mp4" width="100%" autoplay muted loop playsinline controls></video>
+
+## Approach
+
+TDV-LeWM: I augmented LeWorldModel with a TDV-style motion encoder to bias the latent space away toward motion and task-relevant geometry. The motion encoder maps \(\Delta x_t\) with cross-attention to \(H_t\), and the residual \(\Delta z_t\) is trained so that \(z_t + \Delta z_t \approx z_{t+1}\). I also analyzed the OGBench-Cube dataset and discovered ~38% of this popular benchmark is trivially successful, inflating MPC performance metrics.
+
+$$(z_t, H_t) = \mathrm{Enc}(x_t), \qquad \Delta z_t = m_\phi(\Delta x_t, H_t), \qquad \mathcal{L}_{\mathrm{TDV}} = \lVert z_t + \Delta z_t - z_{t+1} \rVert^2$$
+
+$$\mathcal{L} = \mathcal{L}_{\mathrm{pred}} + \lambda\,\mathcal{L}_{\mathrm{SIGReg}} + \alpha\,\mathcal{L}_{\mathrm{TDV}}$$
+
+- **Model.** ViT-T/14 motion encoder on \(\Delta x_t\), cross-attending to \(H_t\). Predictor unchanged from LeWM. Motion encoder discarded at planning time. SIGReg instead of TDV’s DINO teacher.
+- **Data.** OGBench-Cube (single cube) through [stable-worldmodel](https://github.com/galilai-group/stable-worldmodel). Frameskip 5, horizon 25.
+- **Training.** 10 epochs, batch size 128, learning rate \(5\times 10^{-5}\), on RTX 5090s via RunPod. Best run: \(\alpha=1.0\), \(\lambda=0.25\).
+- **Evaluation.** CEM, iCEM, and Adam anytime success on the cube, the gripper, and both (4 cm).
+
+## Repo layout
+
 ```
-export STABLEWM_HOME=/workspace
-export WANDB_API_KEY=XXX
-git clone https://github.com/flamma7/tdv-lewm.git
-pip install 'stable-worldmodel[train]' imageio ale-py
-wandb login --verify
-cd tdv-lewm
-python lewm-runpod.py wandb.enabled=true wandb.config.entity=flamma7-myself wandb.config.project=lewm-test output_model_name=lewm_dual_gpu subdir=lewm_dual_gpu n_gpus=2 trainer.devices=2 +trainer.strategy=ddp optimizer.lr=1.5e-4 data.dataset.name=galilai-group/lewm-pusht
-
-python lewm.py output_model_name=lewm_lr1.414e-4_bs256_gpu4 data.dataset.name=galilai-group/lewm-pusht optimizer.lr=1.414e-4 loader.batch_size=256 n_gpus=4 trainer.devices=4 wandb.enabled=false hf.enabled=false
-```
-Create my output_model_name=lewm_lr{learning-rate}_bs{batch_size}_gpu{n_gpus}
-
-
-
-Also consider downloading the dataset to network drive `/workspace` on a cheap instance
-
-I think the issue before was that I was using that dataset instead of lance --> let's try the lance...
-
-# Evaluatoin Instructions for Lance PushT
-Needed to edit the eval_wm.py script for lance updates backported from main
-Decided to stay on `0.1.1` branch bc shit ain't working on the latest `main`. Probably want to fork and commit my fixes.
-```
-python scripts/plan/eval_wm.py     policy=quentinll/lewm-pusht eval.dataset_name=galilai-group/lewm-pusht
-```
-
-# Evaluation Instructions for H5
-1. Install the working package recipe
-
-[requirements-working.txt](https://github.com/user-attachments/files/31180048/requirements-working.txt)
-
-```bash
-uv venv --python=3.10 .venv
-source .venv/bin/activate
-uv pip install -r requirements-working.txt
+scripts/train/lewm_tdv.py         # TDV-LeWM training (source of reported results)
+scripts/train/lewm.py             # LeWM reproduction (LeWM_REP)
+scripts/train/lewm_visreg.py      # VISReg in place of SIGReg
+scripts/plan/eval_wm_cube_mpc.py  # CEM / iCEM / Adam anytime success
+scripts/plan/eval_wm_cube_plan.py # latent cost vs cube and gripper outcomes
+scripts/plan/eval_straightness.py # consecutive latent-velocity cosine
+controller.py                     # dispatch train / mpc / plan jobs
+deploy.py                         # RunPod pods; recycle on bad NVIDIA drivers
+job_configs/                      # sweep specs (tdv, lewm, visreg)
+analysis/                         # no-op counts, MPC tables, ranking, straightness
+docs/                             # project page
 ```
 
-2. Set your `STABLEWM_HOME` variable and create the required directories
+Reported TDV-LeWM numbers are from `scripts/train/lewm_tdv.py` (\(\alpha=1.0\), \(\lambda=0.25\)). `lewm.py` is \(\mathrm{LeWM_{REP}}\). `controller.py` reads a `job_configs/*.yaml` and launches training or eval on RunPod; checkpoints go to [Hugging Face](https://huggingface.co/flamma77/lewm-base).
 
-```bash
-export STABLEWM_HOME=/path/to/your/stablewm-home
+## Learnings
 
-mkdir -p "$STABLEWM_HOME/datasets"
-mkdir -p "$STABLEWM_HOME/checkpoints/models--quentinll--lewm-pusht"
-```
+- Cube no-ops are ~38% of the eval set and account for most of the inflation in cube and both-object success. Once they are removed, success rate drops considerably for LeWM, and the performance improvement of TDV-LeWM in comparison widens.
+- Every model scores the gripper much higher than the cube. The gripper occupies more of the image, so it takes a larger share of the latent that MPC optimizes. Most cube no-ops still require the gripper to move (the joint both-no-op rate is only ~4%).
+- TDV-LeWM needed a larger SIGReg weight (\(\lambda=0.25\) vs \(0.1\)) to offset the extra predictive bias from \(\mathcal{L}_{\mathrm{TDV}}\). The published checkpoint also keeps a slightly higher Roy–Vetterli effective rank than either model I trained.
+- TDV ranks cube outcomes and the combined cube–gripper objective best (pooled Spearman \(\rho_{\mathrm{cube}}=0.608\), \(\rho_{\mathrm{cg}}=0.657\), positive \(\rho_{\mathrm{cg}}\) on 94% of scenarios). Gripper outcomes are ranked more faithfully than cube outcomes for all three models.
+- Learning the one-step displacement \(z_{t+1} \approx z_t + \Delta z_t\) does not straighten latent trajectories. Mean consecutive-velocity cosine is 0.661 for TDV-LeWM, against 0.674 and 0.669 for \(\mathrm{LeWM_{REP}}\) and \(\mathrm{LeWM_{PUB}}\).
 
-3. Pull the original trained LeWM model directly into SWM's expected checkpoint location. You can try `--revision main` but I'll include this commit hash to assure it works with the frozen Python packages.
+## References
 
-```bash
-hf download quentinll/lewm-pusht \
-    config.json weights.pt \
-    --revision 22b330c28c27ead4bfd1888615af1340e3fe9052 \
-    --local-dir "$STABLEWM_HOME/checkpoints/models--quentinll--lewm-pusht"
-```
-
-4. Confirm your package versions can load LeWM.
-
-[test_load.py](https://github.com/user-attachments/files/31180984/test_load.py)
-
-```bash
-python test_load.py
-```
-
-5. Now you can load LeWM with swm `0.1.1`. To download and prep the Push-T dataset directly in SWM's expected `datasets` folder, run the following:
-
-```bash
-hf download quentinll/lewm-pusht \
-    pusht_expert_train.h5.zst \
-    --repo-type dataset \
-    --local-dir "$STABLEWM_HOME/datasets"
-
-zstd -d \
-    "$STABLEWM_HOME/datasets/pusht_expert_train.h5.zst" \
-    -o "$STABLEWM_HOME/datasets/pusht_expert_train.h5"
-```
-
-Optionally remove the compressed dataset after decompression:
-
-```bash
-rm "$STABLEWM_HOME/datasets/pusht_expert_train.h5.zst"
-```
-
-6. To evaluate, checkout/clone version `0.1.1` of SWM
-
-```bash
-git clone --branch 0.1.1 --depth 1 \
-    https://github.com/galilai-group/stable-worldmodel.git \
-    stable-worldmodel-0.1.1
-```
-
-7. Run the evaluation
-
-```bash
-cd stable-worldmodel-0.1.1
-
-python scripts/plan/eval_wm.py \
-    policy=quentinll/lewm-pusht
-```
+1. Ninad Daithankar, Alexi Gladstone, Yann LeCun, and Heng Ji. *You Don’t Need Strong Assumptions: Visual Representation Learning via Temporal Differences*. arXiv, 2026. [arXiv:2606.15956](https://arxiv.org/abs/2606.15956)
+2. Lucas Maes, Quentin Le Lidec, Damien Scieur, Yann LeCun, and Randall Balestriero. *LeWorldModel: Stable End-to-End Joint-Embedding Predictive Architecture from Pixels*. arXiv, 2026. [arXiv:2603.19312](https://arxiv.org/abs/2603.19312)
+3. Seohong Park, Kevin Frans, Benjamin Eysenbach, and Sergey Levine. *OGBench: Benchmarking Offline Goal-Conditioned RL*. ICLR, 2025. [arXiv:2410.20092](https://arxiv.org/abs/2410.20092)
+4. Ying Wang, Oumayma Bounou, Gaoyue Zhou, Randall Balestriero, Tim G. J. Rudner, Yann LeCun, and Mengye Ren. *Temporal Straightening for Latent Planning*. arXiv, 2026. [arXiv:2603.12231](https://arxiv.org/abs/2603.12231)
+5. Randall Balestriero and Yann LeCun. *LeJEPA: Provable and Scalable Self-Supervised Learning Without the Heuristics*. arXiv, 2025. [arXiv:2511.08544](https://arxiv.org/abs/2511.08544)
