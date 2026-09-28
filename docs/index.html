@@ -66,9 +66,9 @@
       Recent work on
       <a href="https://arxiv.org/abs/2606.15956">Temporal Difference in Vision (TDV)</a>
       introduced a self-supervised learning signal based on the causal structure of pixel differences in video, with particular strength in visually dense environments.
-      In this work, I add a TDV-style auxiliary representation-learning signal to LeWM to bias its representation away from appearance and toward motion and task-relevant geometry.
+      In this work, I add a TDV-style auxiliary representation-learning signal in the form of a transformer-based motion encoder to LeWM to bias its representation away from appearance and toward motion and task-relevant geometry.
       I train the model end-to-end on a single GPU and evaluate it on OGBench-Cube, the most visually complex task studied by LeWM and its weakest-performing benchmark.
-      I also find that roughly 38% of OGBench-Cube evaluation scenarios are already successful at initialization, inflating reported performance and making the task appear closer to saturation than it is.
+      I also find that roughly 38% of OGBench-Cube evaluation scenarios are already successful at initialization, inflating reported performance.
       On the remaining non-trivial scenarios, LeWM achieves only about 50% cube success, while TDV-LeWM reaches 56%, a 5.3 percentage-point improvement across 15k scenarios.
       Because LeWM optimizes the latent representation of the full image, I also evaluate gripper and joint cube-gripper outcomes, where the TDV inductive bias improves performance consistently and the gains generally widen after removing no-operation cases.
     </p>
